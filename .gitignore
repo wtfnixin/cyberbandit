@@ -1,0 +1,29 @@
+# Ignore Markdown & PDF Documentation Files (requested)
+*.md
+**/*.md
+*.pdf
+**/*.pdf
+
+# Do not ignore root README.md
+!README.md
+
+# Node Package Dependencies
+node_modules/
+**/node_modules/
+
+# Production Bundles & Build Artifacts
+dist/
+**/dist/
+.output/
+
+# Application Secrets & Environmental Configurations
+.env
+**/.env
+
+# Local Debugging, Caches & temporary log outputs
+*.log
+*.txt
+.eslintcache
+.vite-cache/
+.DS_Store
+Thumbs.db

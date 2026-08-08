@@ -4,8 +4,8 @@
 *.pdf
 **/*.pdf
 
-# Do not ignore root README.md
-!README.md
+# Do not ignore any README.md files
+!**/README.md
 
 # Node Package Dependencies
 node_modules/

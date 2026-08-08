@@ -403,12 +403,14 @@ export default function App() {
             OverTheWire Team Server
           </h1>
         </div>
-        {isLogged && team && (
+        {isLogged && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.25)', padding: '6px 12px', borderRadius: '8px', fontSize: '0.9rem' }}>
-              <Users size={16} style={{ color: 'var(--indigo)' }} />
-              <strong>{team.name}</strong>
-            </div>
+            {team && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.25)', padding: '6px 12px', borderRadius: '8px', fontSize: '0.9rem' }}>
+                <Users size={16} style={{ color: 'var(--indigo)' }} />
+                <strong>{team.name}</strong>
+              </div>
+            )}
             <button 
               onClick={handleLogout}
               style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}

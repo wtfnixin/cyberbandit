@@ -21,7 +21,7 @@ Launch Docker Desktop app, navigate to `backend/`, and boot environment:
 ```powershell
 cd backend
 $env:DOCKER_API_VERSION="1.47"; docker compose up -d
-```
+```d
 
 ### 2. Setup database values (PostgreSQL)
 Still inside `backend/` directory, initialize databases and seed target answers:

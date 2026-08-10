@@ -4,9 +4,10 @@
 *.pdf
 **/*.pdf
 
-# Do not ignore README.md & CHEATSHEET.md files
+# Do not ignore README.md, CHEATSHEET.md & admin.md files
 !**/README.md
-!CHEATSHEET.md
+CHEATSHEET.md
+admin.md
 
 # Node Package Dependencies
 node_modules/

@@ -93,6 +93,49 @@ export default function App() {
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
   const [newTeamName, setNewTeamName] = useState('');
   const [showAdminLeaderboard, setShowAdminLeaderboard] = useState(false);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
+
+  // New admin view management and tasks creator states
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'content'>('dashboard');
+  const [levelList, setLevelList] = useState<any[]>([]);
+
+  // Create Level Form States
+  const [newLevelId, setNewLevelId] = useState('');
+  const [newLevelTitle, setNewLevelTitle] = useState('');
+  const [newLevelDesc, setNewLevelDesc] = useState('');
+  const [newLevelPoints, setNewLevelPoints] = useState('');
+
+  // Create Task Form States
+  const [taskLevelId, setTaskLevelId] = useState('');
+  const [taskName, setTaskName] = useState('');
+  const [taskRoleVal, setTaskRoleVal] = useState('TASK_A');
+  const [taskStartDir, setTaskStartDir] = useState('/home/student');
+  const [taskVfs, setTaskVfs] = useState(JSON.stringify({
+    name: "/",
+    type: "directory",
+    permissions: "755",
+    children: {
+      home: {
+        name: "home",
+        type: "directory",
+        permissions: "755",
+        children: {
+          student: {
+            name: "student",
+            type: "directory",
+            permissions: "700",
+            children: {}
+          }
+        }
+      }
+    }
+  }, null, 2));
+  const [taskValType, setTaskValType] = useState<'COMMAND' | 'FILE' | 'OUTPUT'>('OUTPUT');
+  const [taskValTarget, setTaskValTarget] = useState('');
+  const [taskHint, setTaskHint] = useState('');
+
+  // Sytem Announcement Broadcast State
+  const [broadcastMsg, setBroadcastMsg] = useState('');
 
   const initializePublicSocket = () => {
     if (socketRef.current) {
@@ -130,6 +173,113 @@ export default function App() {
     } catch (err) {
       console.error('Failed to fetch teams:', err);
     }
+  };
+
+  const fetchLevels = async (tokenVal: string) => {
+    try {
+      const res = await fetch('/api/admin/levels', {
+        headers: { 'Authorization': `Bearer ${tokenVal}` }
+      });
+      const data = await res.json();
+      if (!data.error) {
+        setLevelList(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch levels:', err);
+    }
+  };
+
+  const handleCreateLevel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLevelId || !newLevelTitle || !newLevelDesc || !newLevelPoints) {
+      alert('All level fields are required');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/levels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          id: Number(newLevelId),
+          title: newLevelTitle.trim(),
+          description: newLevelDesc.trim(),
+          points: Number(newLevelPoints)
+        })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+      } else {
+        alert('Level created successfully!');
+        setNewLevelId('');
+        setNewLevelTitle('');
+        setNewLevelDesc('');
+        setNewLevelPoints('');
+        if (adminToken) fetchLevels(adminToken);
+      }
+    } catch (err: any) {
+      alert('Failed to create level: ' + err.message);
+    }
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskLevelId || !taskName || !taskRoleVal || !taskValTarget) {
+      alert('Level, Task Name, Role and Validation Target are required');
+      return;
+    }
+
+    let parsedVfs;
+    try {
+      parsedVfs = JSON.parse(taskVfs.trim());
+    } catch (err) {
+      alert('Invalid VFS JSON layout.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          levelId: Number(taskLevelId),
+          name: taskName.trim(),
+          taskRole: taskRoleVal,
+          startDirectory: taskStartDir.trim(),
+          initialVFS: parsedVfs,
+          validationType: taskValType,
+          validationTarget: taskValTarget.trim(),
+          hintText: taskHint.trim()
+        })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+      } else {
+        alert('Challenge Task created successfully!');
+        setTaskName('');
+        setTaskValTarget('');
+        setTaskHint('');
+        if (adminToken) fetchLevels(adminToken);
+      }
+    } catch (err: any) {
+      alert('Failed to create task: ' + err.message);
+    }
+  };
+
+  const handleSendBroadcast = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastMsg.trim() || !socketRef.current) return;
+    socketRef.current.emit('admin:broadcast:alert', { message: broadcastMsg.trim() });
+    addAdminLog(`Sent system announcement: "${broadcastMsg.trim()}"`, 'system');
+    setBroadcastMsg('');
   };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -254,6 +404,7 @@ export default function App() {
       localStorage.setItem('admin_token', adminToken);
       setIsAdminLogged(true);
       fetchTeams(adminToken);
+      fetchLevels(adminToken);
       initializeAdminSocket(adminToken);
     } else {
       localStorage.removeItem('admin_token');
@@ -319,6 +470,28 @@ export default function App() {
     term.onData((data) => {
       if (!socketRef.current) return;
 
+      // Handle paste directly if data has length > 1
+      if (data.length > 1) {
+        for (let i = 0; i < data.length; i++) {
+          const char = data[i];
+          const charCode = char.charCodeAt(0);
+          if (char === '\r' || char === '\n') {
+            const cmd = commandBufferRef.current.trim();
+            term.write('\r\n');
+            if (cmd.length > 0) {
+              socketRef.current.emit('command:execute', { commandLine: cmd });
+              commandBufferRef.current = '';
+            } else {
+              writePrompt();
+            }
+          } else if (charCode >= 32 && charCode < 127) {
+            commandBufferRef.current += char;
+            term.write(char);
+          }
+        }
+        return;
+      }
+
       const code = data.charCodeAt(0);
 
       // 1. Enter Key
@@ -356,6 +529,33 @@ export default function App() {
       }
     });
 
+    // Handle paste event directly on terminal window to ensure Ctrl+V / Right Click Paste works
+    const handleDomPaste = (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData('text');
+      if (text) {
+        if (terminalRef.current && terminalRef.current.contains(document.activeElement)) {
+          for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const charCode = char.charCodeAt(0);
+            if (char === '\n' || char === '\r') {
+              const cmd = commandBufferRef.current.trim();
+              term.write('\r\n');
+              if (cmd.length > 0) {
+                socketRef.current?.emit('command:execute', { commandLine: cmd });
+                commandBufferRef.current = '';
+              } else {
+                writePrompt();
+              }
+            } else if (charCode >= 32 && charCode < 127) {
+              commandBufferRef.current += char;
+              term.write(char);
+            }
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', handleDomPaste);
+
     // Resize listeners
     const handleResize = () => {
       if (fitAddonRef.current) {
@@ -366,6 +566,7 @@ export default function App() {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('paste', handleDomPaste);
       term.dispose();
     };
   }, [isLogged]);
@@ -395,6 +596,23 @@ export default function App() {
 
     socket.on('leaderboard:update', (data: any[]) => {
       setLeaderboard(data);
+    });
+
+    socket.on('broadcast:alert', (data: { message: string }) => {
+      // 1. Set announcement layout state to trigger rendering the custom overlay modal
+      setAnnouncement(data.message);
+      
+      // 2. Visual Terminal print
+      if (xtermRef.current) {
+        xtermRef.current.writeln(`\r\n\x1b[1;31m[⚠️ SYSTEM ANNOUNCEMENT] ${data.message}\x1b[0m`);
+        xtermRef.current.write('\r');
+        // Redraw terminal prompt
+        const prompt = `student@overthewire:${cwdRef.current || '/home/student'}$ `;
+        xtermRef.current.write(prompt + commandBufferRef.current);
+      }
+      
+      // 3. Layout feed log
+      addLog(`⚠️ SYSTEM: ${data.message}`, 'system');
     });
 
     // Mounted confirmations callback
@@ -889,6 +1107,47 @@ export default function App() {
                 Live Sync
               </span>
             )}
+            {isAdminLogged && (
+              <div style={{ display: 'flex', gap: '8px', marginLeft: '32px' }}>
+                <button
+                  type="button"
+                  onClick={() => setAdminTab('dashboard')}
+                  style={{
+                    background: adminTab === 'dashboard' ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
+                    border: '1px solid ' + (adminTab === 'dashboard' ? 'rgba(56, 189, 248, 0.3)' : 'transparent'),
+                    color: adminTab === 'dashboard' ? 'var(--cyan)' : 'var(--text-muted)',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Dashboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminTab('content');
+                    fetchLevels(adminToken || '');
+                  }}
+                  style={{
+                    background: adminTab === 'content' ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
+                    border: '1px solid ' + (adminTab === 'content' ? 'rgba(56, 189, 248, 0.3)' : 'transparent'),
+                    color: adminTab === 'content' ? 'var(--cyan)' : 'var(--text-muted)',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Challenge Editor
+                </button>
+              </div>
+            )}
           </div>
           {isAdminLogged && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -969,135 +1228,321 @@ export default function App() {
               </div>
             </div>
           ) : (
-            /* Admin Core Dashboard Screen */
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.25fr 1fr', gap: '16px', width: '100%', height: '100%' }}>
-              
-              {/* Column 1: Team stats */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
+            /* Admin Tabbed Views */
+            adminTab === 'dashboard' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.25fr 1fr', gap: '16px', width: '100%', height: '100%' }}>
+                
+                {/* Column 1: Team stats */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
 
-                {/* Team Roster Grid list */}
-                <div className="glass-container" style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Users size={16} style={{ color: 'var(--cyan)' }} /> Registered Teams ({adminTeams.length})
-                  </h3>
-                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {adminTeams.map(t => (
-                      <div 
-                        key={t.id}
-                        style={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center',
-                          background: 'rgba(15, 23, 42, 0.3)',
-                          border: '1px solid var(--border-glass)',
-                          padding: '10px 14px',
-                          borderRadius: '8px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{t.name}</span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            Code: <code style={{ color: 'var(--cyan)' }}>{t.inviteCode}</code> | Level {t.currentLevelId}
-                          </span>
-                        </div>
-                        <button 
-                          onClick={() => handleDeleteTeam(t.id)}
-                          style={{ background: 'transparent', border: 'none', color: 'var(--rose)', cursor: 'pointer', padding: '4px' }}
-                          title="Delete Team"
+                  {/* Team Roster Grid list */}
+                  <div className="glass-container" style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Users size={16} style={{ color: 'var(--cyan)' }} /> Registered Teams ({adminTeams.length})
+                    </h3>
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {adminTeams.map(t => (
+                        <div 
+                          key={t.id}
+                          style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center',
+                            background: 'rgba(15, 23, 42, 0.3)',
+                            border: '1px solid var(--border-glass)',
+                            padding: '10px 14px',
+                            borderRadius: '8px'
+                          }}
                         >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{t.name}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              Code: <code style={{ color: 'var(--cyan)' }}>{t.inviteCode}</code> | Level {t.currentLevelId}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={() => handleDeleteTeam(t.id)}
+                            style={{ background: 'transparent', border: 'none', color: 'var(--rose)', cursor: 'pointer', padding: '4px' }}
+                            title="Delete Team"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Column 2: Live Activity Streams */}
-              <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Activity style={{ color: 'var(--cyan)' }} size={16} /> Real-time Activity Telemetry
-                </h3>
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
-                  {adminLogs.length === 0 ? (
-                    <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>Listening for live actions on websocket server...</span>
-                  ) : (
-                    adminLogs.map(log => (
-                      <div 
-                        key={log.id} 
-                        style={{ 
-                          display: 'flex', 
-                          gap: '8px', 
-                          padding: '8px 12px', 
-                          background: log.type === 'success' ? 'rgba(16, 185, 129, 0.08)' : log.type === 'system' ? 'rgba(248, 158, 27, 0.08)' : 'rgba(255,255,255,0.01)',
-                          border: `1px solid ${log.type === 'success' ? 'rgba(16, 185, 129, 0.2)' : log.type === 'system' ? 'rgba(248, 158, 27, 0.2)' : 'var(--border-glass)'}`,
-                          borderRadius: '6px'
-                        }}
-                      >
-                        <span style={{ color: 'var(--cyan)' }}>{log.timestamp}</span>
-                        <span style={{ 
-                          color: log.type === 'success' ? 'var(--jade)' : log.type === 'system' ? 'var(--amber)' : 'var(--text-primary)'
-                        }}>
-                          {log.text}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Column 3: Configuration details */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Create Team Form */}
-                <div className="glass-container" style={{ padding: '20px' }}>
+                {/* Column 2: Live Activity Streams */}
+                <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                   <h3 style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Plus size={16} style={{ color: 'var(--amber)' }} /> Add New Tournament Team
+                    <Activity style={{ color: 'var(--cyan)' }} size={16} /> Real-time Activity Telemetry
                   </h3>
-                  <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Team Identifier Name</label>
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+                    {adminLogs.length === 0 ? (
+                      <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>Listening for live actions on websocket server...</span>
+                    ) : (
+                      adminLogs.map(log => (
+                        <div 
+                          key={log.id} 
+                          style={{ 
+                            display: 'flex', 
+                            gap: '8px', 
+                            padding: '8px 12px', 
+                            background: log.type === 'success' ? 'rgba(16, 185, 129, 0.08)' : log.type === 'system' ? 'rgba(248, 158, 27, 0.08)' : 'rgba(255,255,255,0.01)',
+                            border: `1px solid ${log.type === 'success' ? 'rgba(16, 185, 129, 0.2)' : log.type === 'system' ? 'rgba(248, 158, 27, 0.2)' : 'var(--border-glass)'}`,
+                            borderRadius: '6px'
+                          }}
+                        >
+                          <span style={{ color: 'var(--cyan)' }}>{log.timestamp}</span>
+                          <span style={{ 
+                            color: log.type === 'success' ? 'var(--jade)' : log.type === 'system' ? 'var(--amber)' : 'var(--text-primary)'
+                          }}>
+                            {log.text}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Column 3: Configuration details */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Create Team Form */}
+                  <div className="glass-container" style={{ padding: '20px' }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Plus size={16} style={{ color: 'var(--amber)' }} /> Add New Tournament Team
+                    </h3>
+                    <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Team Identifier Name</label>
+                        <input 
+                          type="text" 
+                          className="form-control" 
+                          placeholder="e.g. Red Devils" 
+                          value={newTeamName}
+                          onChange={(e) => setNewTeamName(e.target.value)}
+                        />
+                      </div>
+                      <button type="submit" className="btn" style={{ background: 'linear-gradient(135deg, var(--cyan) 0%, var(--indigo) 100%)' }}>
+                        Create Team Profile
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Send System Alert Broadcast */}
+                  <div className="glass-container" style={{ padding: '20px' }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', color: 'var(--rose)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Shield size={16} /> Broadcast System Alert
+                    </h3>
+                    <form onSubmit={handleSendBroadcast} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Message Content</label>
+                        <input 
+                          type="text" 
+                          className="form-control" 
+                          placeholder="Type alert popup message..." 
+                          value={broadcastMsg}
+                          onChange={(e) => setBroadcastMsg(e.target.value)}
+                        />
+                      </div>
+                      <button type="submit" className="btn" style={{ background: 'linear-gradient(135deg, var(--rose) 0%, var(--amber) 100%)' }}>
+                        Broadcast Popup to All Teams
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+              </div>
+            ) : (
+              /* Admin Challenge Editor Screen */
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1.2fr 2fr', 
+                gap: '16px', 
+                width: '100%', 
+                height: '100%',
+                overflow: 'hidden'
+              }}>
+                
+                {/* Left Column: Create Level */}
+                <div className="glass-container" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Plus size={20} /> Create New Level
+                  </h3>
+                  <p style={{ fontSize: '0.8.5rem', color: 'var(--text-muted)' }}>
+                    Define matching levels for students to advance sequentially through tasks.
+                  </p>
+
+                  <form onSubmit={handleCreateLevel} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Level ID (e.g. 3)</label>
+                      <input 
+                        type="number" 
+                        className="form-control" 
+                        placeholder="Next numeric ID" 
+                        value={newLevelId}
+                        onChange={(e) => setNewLevelId(e.target.value)}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Level Title</label>
                       <input 
                         type="text" 
                         className="form-control" 
-                        placeholder="e.g. Red Devils" 
-                        value={newTeamName}
-                        onChange={(e) => setNewTeamName(e.target.value)}
+                        placeholder="e.g. File Permissions" 
+                        value={newLevelTitle}
+                        onChange={(e) => setNewLevelTitle(e.target.value)}
                       />
                     </div>
-                    <button type="submit" className="btn" style={{ background: 'linear-gradient(135deg, var(--cyan) 0%, var(--indigo) 100%)' }}>
-                      Create Team Profile
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Description</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="e.g. Audit files and groups..." 
+                        value={newLevelDesc}
+                        onChange={(e) => setNewLevelDesc(e.target.value)}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Points Value</label>
+                      <input 
+                        type="number" 
+                        className="form-control" 
+                        placeholder="Points e.g. 300" 
+                        value={newLevelPoints}
+                        onChange={(e) => setNewLevelPoints(e.target.value)}
+                      />
+                    </div>
+                    <button type="submit" className="btn" style={{ background: 'linear-gradient(135deg, var(--amber) 0%, var(--rose) 100%)', marginTop: '8px' }}>
+                      Create Level Standings
                     </button>
                   </form>
                 </div>
 
-                {/* DB & Deployment info card */}
-                <div className="glass-container" style={{ flex: 1, padding: '20px' }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', color: 'var(--text-primary)' }}>
-                    System Metrics & Access
+                {/* Right Column: Create Task */}
+                <div className="glass-container" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Plus size={20} /> Add Task Challenge
                   </h3>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div>
-                      <strong>Prisma Client Connector:</strong>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '4px', marginTop: '4px' }}>
-                        PostgreSQL Active
-                      </div>
-                    </div>
-                    <div>
-                      <strong>WebSocket Gateway:</strong>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '4px', marginTop: '4px' }}>
-                        admin:room Listening
-                      </div>
-                    </div>
-                    <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '12px' }}>
-                      <span style={{ fontSize: '0.75rem' }}>
-                        Instruct players to login at their root URL. Handlers dynamically register player actions instantly.
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  <p style={{ fontSize: '0.8.5rem', color: 'var(--text-muted)' }}>
+                    Configure terminal challenge parameters, initial VFS state and validation strings.
+                  </p>
 
-            </div>
+                  <form onSubmit={handleCreateTask} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Assign to Level</label>
+                      <select 
+                        className="form-control" 
+                        value={taskLevelId}
+                        onChange={(e) => setTaskLevelId(e.target.value)}
+                        style={{ background: '#0f172a', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', padding: '6px' }}
+                      >
+                        <option value="">-- Choose Level --</option>
+                        {levelList.map(lvl => (
+                          <option key={lvl.id} value={lvl.id}>Level {lvl.id}: {lvl.title}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Task Name</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="e.g. Hidden Files" 
+                        value={taskName}
+                        onChange={(e) => setTaskName(e.target.value)}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Task Role</label>
+                      <select 
+                        className="form-control" 
+                        value={taskRoleVal}
+                        onChange={(e) => setTaskRoleVal(e.target.value)}
+                        style={{ background: '#0f172a', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', padding: '6px' }}
+                      >
+                        <option value="TASK_A">TASK A</option>
+                        <option value="TASK_B">TASK B</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Start Directory</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        value={taskStartDir}
+                        onChange={(e) => setTaskStartDir(e.target.value)}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Validation Type</label>
+                      <select 
+                        className="form-control" 
+                        value={taskValType}
+                        onChange={(e) => setTaskValType(e.target.value as any)}
+                        style={{ background: '#0f172a', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', padding: '6px' }}
+                      >
+                        <option value="OUTPUT">OUTPUT (Checks output of a run command)</option>
+                        <option value="COMMAND">COMMAND (Checks exact command input)</option>
+                        <option value="FILE">FILE (Checks files presence/content)</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Validation Target / Flag</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="e.g. flag{...} or output string" 
+                        value={taskValTarget}
+                        onChange={(e) => setTaskValTarget(e.target.value)}
+                      />
+                    </div>
+
+                    <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Hint Text</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="Instructions/hint shown to users..." 
+                        value={taskHint}
+                        onChange={(e) => setTaskHint(e.target.value)}
+                      />
+                    </div>
+
+                    <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Initial VFS Mock Structure (JSON)</label>
+                      <textarea 
+                        className="form-control" 
+                        style={{ 
+                          fontFamily: 'var(--font-mono)', 
+                          fontSize: '0.75rem', 
+                          height: '90px', 
+                          background: '#0f172a', 
+                          border: '1px solid var(--border-glass)', 
+                          color: 'var(--text-primary)',
+                          resize: 'none',
+                          padding: '6px'
+                        }}
+                        value={taskVfs}
+                        onChange={(e) => setTaskVfs(e.target.value)}
+                      />
+                    </div>
+
+                    <button type="submit" className="btn" style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg, var(--cyan) 0%, var(--indigo) 100%)', marginTop: '6px' }}>
+                      Publish Challenge Task
+                    </button>
+                  </form>
+                </div>
+
+              </div>
+            )
           )}
         </main>
       </div>
@@ -1141,6 +1586,63 @@ export default function App() {
           </div>
         )}
       </header>
+      
+      {announcement && (
+        <div style={{
+          background: '#ef4444',
+          color: '#ffffff',
+          padding: '8px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          fontFamily: 'var(--font-mono)',
+          fontWeight: 'bold',
+          fontSize: '0.9rem',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 4px 15px rgba(239, 68, 68, 0.25)',
+          zIndex: 49
+        }}>
+          <div style={{
+            background: '#000000',
+            color: '#ef4444',
+            padding: '4px 10px',
+            borderRadius: '4px',
+            fontSize: '0.75rem',
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            ⚡ BROADCAST ALERT
+          </div>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            {announcement}
+          </div>
+          <button
+            type="button"
+            onClick={() => setAnnouncement(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'rgba(255, 255, 255, 0.7)',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '2px 8px',
+              transition: 'color 0.2s',
+              lineHeight: 1
+            }}
+            title="Dismiss Announcement"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '16px', gap: '16px' }}>

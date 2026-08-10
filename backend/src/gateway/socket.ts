@@ -90,6 +90,12 @@ export function registerSocketGateway(io: Server) {
       await socket.join('admin:room');
       console.log(`Super Admin ${username} connected to admin:room`);
       await broadcastLeaderboard(io);
+
+      socket.on('admin:broadcast:alert', (data: { message: string }) => {
+        console.log(`[Admin Broadcast] Emitting system announcement: ${data.message}`);
+        io.emit('broadcast:alert', { message: data.message });
+      });
+
       return;
     }
 
@@ -273,6 +279,9 @@ export function registerSocketGateway(io: Server) {
               timestamp: new Date().toISOString()
             });
 
+            // Trigger admin teams list update
+            io.to('admin:room').emit('admin:teams:refresh');
+
             // Update real-time leaderboard
             await broadcastLeaderboard(io);
 
@@ -296,6 +305,9 @@ export function registerSocketGateway(io: Server) {
                 // Recalculate leaderboard
                 await updateLeaderboardScore(teamId, updatedTeam.score);
                 await broadcastLeaderboard(io);
+
+                // Trigger admin teams list update for level advancement
+                io.to('admin:room').emit('admin:teams:refresh');
 
                 // Broadcast team level:advance payload
                 io.to(teamRoom).emit('level:advance', {

@@ -102,4 +102,97 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({ error: 'Failed to list submissions', details: err.message });
     }
   });
+
+  // 5. Create a level
+  fastify.post('/api/admin/levels', async (request, reply) => {
+    const { id, title, description, points } = request.body as { id: number; title: string; description: string; points: number };
+    if (!id || !title || !description || points === undefined) {
+      return reply.code(400).send({ error: 'All fields (id, title, description, points) are required' });
+    }
+
+    try {
+      const level = await prisma.level.create({
+        data: {
+          id: Number(id),
+          title: title.trim(),
+          description: description.trim(),
+          points: Number(points)
+        }
+      });
+      return reply.code(201).send(level);
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        return reply.code(400).send({ error: 'Level ID is already taken' });
+      }
+      return reply.code(500).send({ error: 'Failed to create level', details: err.message });
+    }
+  });
+
+  // 6. Create a task
+  fastify.post('/api/admin/tasks', async (request, reply) => {
+    const { levelId, name, taskRole, startDirectory, initialVFS, validationType, validationTarget, hintText } = request.body as {
+      levelId: number;
+      name: string;
+      taskRole: string;
+      startDirectory: string;
+      initialVFS: any;
+      validationType: 'COMMAND' | 'FILE' | 'OUTPUT';
+      validationTarget: string;
+      hintText?: string;
+    };
+
+    if (!levelId || !name || !taskRole || !validationType || !validationTarget) {
+      return reply.code(400).send({ error: 'Missing required parameters' });
+    }
+
+    try {
+      const task = await prisma.task.create({
+        data: {
+          levelId: Number(levelId),
+          name: name.trim(),
+          taskRole: taskRole.trim(),
+          startDirectory: startDirectory ? startDirectory.trim() : '/home/student',
+          initialVFS: initialVFS || {
+            name: '/',
+            type: 'directory',
+            permissions: '755',
+            children: {
+              home: {
+                name: 'home',
+                type: 'directory',
+                permissions: '755',
+                children: {
+                  student: {
+                    name: 'student',
+                    type: 'directory',
+                    permissions: '700',
+                    children: {}
+                  }
+                }
+              }
+            }
+          },
+          validationType,
+          validationTarget: validationTarget.trim(),
+          hintText: hintText ? hintText.trim() : null
+        }
+      });
+      return reply.code(201).send(task);
+    } catch (err: any) {
+      return reply.code(500).send({ error: 'Failed to create task', details: err.message });
+    }
+  });
+
+  // 7. Get all levels (for selector)
+  fastify.get('/api/admin/levels', async (request, reply) => {
+    try {
+      const levels = await prisma.level.findMany({
+        include: { tasks: true },
+        orderBy: { id: 'asc' }
+      });
+      return reply.send(levels);
+    } catch (err: any) {
+      return reply.code(500).send({ error: 'Failed to list levels', details: err.message });
+    }
+  });
 }

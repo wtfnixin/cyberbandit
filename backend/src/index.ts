@@ -5,6 +5,7 @@ import fastifyStatic from '@fastify/static';
 import * as path from 'path';
 import { connectRedis } from './services/redis';
 import { authRoutes } from './routes/auth';
+import { adminRoutes } from './routes/admin';
 import { registerSocketGateway } from './gateway/socket';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
@@ -43,6 +44,7 @@ async function main() {
 
     // 4. Register HTTP Auth Endpoints
     await fastify.register(authRoutes);
+    await fastify.register(adminRoutes);
 
     // 5. Initialize Websocket Game Controllers
     registerSocketGateway((fastify as any).io);

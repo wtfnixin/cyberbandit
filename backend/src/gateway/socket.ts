@@ -24,9 +24,39 @@ interface DecodedToken {
   teamId: string;
 }
 
+async function broadcastLeaderboard(io: Server) {
+  try {
+    const teams = await prisma.team.findMany({
+      select: {
+        id: true,
+        name: true,
+        score: true
+      },
+      orderBy: {
+        score: 'desc'
+      },
+      take: 10
+    });
+    io.emit('leaderboard:update', teams);
+  } catch (err: any) {
+    console.error('Error broadcasting leaderboard:', err.message);
+  }
+}
+
 export function registerSocketGateway(io: Server) {
   // Authentication Middleware
   io.use((socket: Socket, next) => {
+    const isPublic = socket.handshake.auth?.isPublicLeaderboard;
+    if (isPublic) {
+      socket.data = {
+        userId: 'guest-id',
+        username: 'guest',
+        role: 'GUEST',
+        teamId: 'guest-team'
+      };
+      return next();
+    }
+
     const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
     if (!token) {
       return next(new Error('Authentication token missing'));
@@ -48,7 +78,21 @@ export function registerSocketGateway(io: Server) {
   });
 
   io.on('connection', async (socket: Socket) => {
-    const { userId, username, teamId } = socket.data;
+    const { userId, username, teamId, role } = socket.data;
+
+    if (role === 'GUEST') {
+      console.log('Guest connected for public live standings tracker');
+      await broadcastLeaderboard(io);
+      return;
+    }
+
+    if (role === 'SUPER_ADMIN') {
+      await socket.join('admin:room');
+      console.log(`Super Admin ${username} connected to admin:room`);
+      await broadcastLeaderboard(io);
+      return;
+    }
+
     const teamRoom = `team:${teamId}`;
     
     // Join the Socket.IO room for team broadcasts
@@ -65,6 +109,9 @@ export function registerSocketGateway(io: Server) {
         progress
       });
     }
+
+    // Broadcast updated leaderboard to all upon new players entering
+    await broadcastLeaderboard(io);
 
     // 1. Mount Sub-Task (triggers VFS copy on Redis)
     socket.on('task:mount', async (data: { taskId: string }) => {
@@ -145,6 +192,16 @@ export function registerSocketGateway(io: Server) {
           specialAction: executionResult.specialAction
         });
 
+        // Broadcast telemetry logs to admin panel
+        const teamObj = await getTeam(teamId);
+        io.to('admin:room').emit('admin:activity:feed', {
+          teamName: teamObj?.name || 'Unknown Team',
+          username,
+          commandLine,
+          cwd: executionResult.cwd,
+          timestamp: new Date().toISOString()
+        });
+
         // 3. Intercept & Evaluate SUBMIT_FLAG special actions
         if (executionResult.specialAction && executionResult.specialAction.action === 'SUBMIT_FLAG') {
           const submittedFlag = executionResult.specialAction.flag;
@@ -206,6 +263,19 @@ export function registerSocketGateway(io: Server) {
               score: updatedTeam?.score || 0
             });
 
+            // Broadcast details to admin room
+            io.to('admin:room').emit('admin:solve:alert', {
+              teamName: updatedTeam?.name || 'Unknown Team',
+              username,
+              taskName: task.name,
+              pointsAdded: task.points,
+              newTotalScore: updatedTeam?.score || 0,
+              timestamp: new Date().toISOString()
+            });
+
+            // Update real-time leaderboard
+            await broadcastLeaderboard(io);
+
             // Check if BOTH tasks of the level are completed
             const allTasksSolved = task.level.tasks.every((t: any) => progress[t.taskRole] === 'COMPLETED');
             
@@ -225,6 +295,7 @@ export function registerSocketGateway(io: Server) {
 
                 // Recalculate leaderboard
                 await updateLeaderboardScore(teamId, updatedTeam.score);
+                await broadcastLeaderboard(io);
 
                 // Broadcast team level:advance payload
                 io.to(teamRoom).emit('level:advance', {

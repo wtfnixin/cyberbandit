@@ -134,4 +134,35 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({ error: 'Internal login error', details: err.message });
     }
   });
+
+  // 4. Super Admin environment-based login
+  fastify.post('/api/auth/admin-login', async (request, reply) => {
+    const { username, password } = request.body as { username: string; password?: string };
+    const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'adminpassword123';
+
+    if (!username || !password) {
+      return reply.code(400).send({ error: 'Username and password are required' });
+    }
+
+    if (username.trim() !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+      return reply.code(401).send({ error: 'Invalid admin credentials' });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: 'admin-id',
+        username: ADMIN_USERNAME,
+        role: 'SUPER_ADMIN',
+        teamId: 'admin-team'
+      },
+      JWT_SECRET,
+      { expiresIn: '6h' }
+    );
+
+    return reply.send({
+      token,
+      user: { id: 'admin-id', username: ADMIN_USERNAME, role: 'SUPER_ADMIN' }
+    });
+  });
 }

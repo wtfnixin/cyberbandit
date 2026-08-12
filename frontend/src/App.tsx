@@ -1154,68 +1154,133 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center / Right Header Badges & Action Buttons */}
-        {isLogged ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Room Info */}
-            <div style={{
+        {/* Center/Right Header Badges & Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {isLogged && (
+            <>
+              {/* Room Info */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(0, 255, 102, 0.06)',
+                border: '1px solid var(--theme-border)',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold'
+              }}>
+                <Users size={14} style={{ color: 'var(--theme-primary)' }} />
+                <span>ROOM: <span style={{ color: 'var(--theme-primary)' }}>TEAM: {team?.name || 'GNG'}</span></span>
+              </div>
+
+              {/* Elapsed Timer Pill */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                color: '#f87171'
+              }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                <span>ELAPSED: {formatElapsedTime(elapsedTime)}</span>
+              </div>
+
+              {/* Profile User Badge */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(0, 255, 102, 0.12)',
+                border: '1px solid var(--theme-primary)',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                color: 'var(--theme-primary)'
+              }}>
+                <span>🥷 {username || 'Dhruv'}</span>
+                <button
+                  onClick={handleLogout}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 2px' }}
+                  title="Logout"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Cheat Sheet Button */}
+          <button
+            onClick={() => { setShowCheatSheet(true); playClickSound(); }}
+            style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              background: 'rgba(0, 255, 102, 0.06)',
+              background: 'rgba(0, 0, 0, 0.4)',
               border: '1px solid var(--theme-border)',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 'bold'
-            }}>
-              <Users size={14} style={{ color: 'var(--theme-primary)' }} />
-              <span>ROOM: <span style={{ color: 'var(--theme-primary)' }}>TEAM: {team?.name || 'GNG'}</span></span>
-            </div>
-
-            {/* Elapsed Timer Pill */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 'bold',
-              color: '#f87171'
-            }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-              <span>ELAPSED: {formatElapsedTime(elapsedTime)}</span>
-            </div>
-
-            {/* Profile User Badge */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(0, 255, 102, 0.12)',
-              border: '1px solid var(--theme-primary)',
-              padding: '4px 10px',
+              color: 'var(--theme-text)',
+              padding: '5px 12px',
               borderRadius: '6px',
               fontSize: '0.8rem',
               fontWeight: 'bold',
-              color: 'var(--theme-primary)'
-            }}>
-              <span>🥷 {username || 'Player'}</span>
-              <button
-                onClick={handleLogout}
-                style={{ background: 'transparent', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 2px' }}
-                title="Logout"
-              >
-                <LogOut size={14} />
-              </button>
-            </div>
+              cursor: 'pointer'
+            }}
+          >
+            <BookOpen size={14} style={{ color: 'var(--theme-primary)' }} />
+            <span>Cheat Sheet</span>
+          </button>
 
-            {/* Cheat Sheet Button */}
+          {/* Vault Button */}
+          <button
+            onClick={() => { setShowVault(true); playClickSound(); }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(0, 0, 0, 0.4)',
+              border: '1px solid var(--theme-border)',
+              color: 'var(--theme-text)',
+              padding: '5px 12px',
+              borderRadius: '6px',
+              fontSize: '0.8rem',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            <Key size={14} style={{ color: 'var(--theme-primary)' }} />
+            <span>Vault</span>
+          </button>
+
+          {/* Sound Toggle */}
+          <button
+            onClick={() => { setIsMuted(!isMuted); playClickSound(); }}
+            style={{
+              background: 'rgba(0, 0, 0, 0.4)',
+              border: '1px solid var(--theme-border)',
+              color: 'var(--theme-primary)',
+              padding: '6px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title={isMuted ? "Unmute Audio" : "Mute Audio"}
+          >
+            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
+
+          {/* Theme Dropdown */}
+          <div style={{ position: 'relative' }}>
             <button
-              onClick={() => { setShowCheatSheet(true); playClickSound(); }}
+              onClick={() => { setShowThemeDropdown(!showThemeDropdown); playClickSound(); }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1230,137 +1295,74 @@ export default function App() {
                 cursor: 'pointer'
               }}
             >
-              <BookOpen size={14} style={{ color: 'var(--theme-primary)' }} />
-              <span>Cheat Sheet</span>
+              <Monitor size={14} style={{ color: 'var(--theme-primary)' }} />
+              <span>{currentTheme}</span>
+              <ChevronDown size={14} />
             </button>
 
-            {/* Vault Button */}
-            <button
-              onClick={() => { setShowVault(true); playClickSound(); }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid var(--theme-border)',
-                color: 'var(--theme-text)',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              <Key size={14} style={{ color: 'var(--theme-primary)' }} />
-              <span>Vault</span>
-            </button>
-
-            {/* Sound Toggle */}
-            <button
-              onClick={() => { setIsMuted(!isMuted); playClickSound(); }}
-              style={{
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid var(--theme-border)',
-                color: 'var(--theme-primary)',
-                padding: '6px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title={isMuted ? "Unmute Audio" : "Mute Audio"}
-            >
-              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            </button>
-
-            {/* Theme Dropdown */}
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => { setShowThemeDropdown(!showThemeDropdown); playClickSound(); }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(0, 0, 0, 0.4)',
-                  border: '1px solid var(--theme-border)',
-                  color: 'var(--theme-text)',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                <Monitor size={14} style={{ color: 'var(--theme-primary)' }} />
-                <span>{currentTheme}</span>
-                <ChevronDown size={14} />
-              </button>
-
-              {showThemeDropdown && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: '6px',
-                  width: '160px',
-                  background: '#111827',
-                  border: '1px solid #374151',
-                  borderRadius: '8px',
-                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.7)',
-                  overflow: 'hidden',
-                  zIndex: 100
-                }}>
-                  {THEMES.map(t => (
-                    <button
-                      key={t.name}
-                      onClick={() => handleSelectTheme(t.name)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        width: '100%',
-                        padding: '8px 12px',
-                        background: currentTheme === t.name ? '#2563eb' : 'transparent',
-                        border: 'none',
-                        color: '#ffffff',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        textAlign: 'left',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {currentTheme === t.name ? <Check size={14} /> : <span style={{ width: '14px' }} />}
-                      <span>{t.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Red Admin Button */}
-            <button
-              onClick={() => { setIsAdminMode(true); playClickSound(); }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                border: 'none',
-                color: '#ffffff',
-                padding: '6px 14px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 900,
-                cursor: 'pointer',
-                boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)'
-              }}
-            >
-              <Lock size={14} />
-              <span>ADMIN</span>
-            </button>
+            {showThemeDropdown && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '6px',
+                width: '160px',
+                background: '#111827',
+                border: '1px solid #374151',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.7)',
+                overflow: 'hidden',
+                zIndex: 100
+              }}>
+                {THEMES.map(t => (
+                  <button
+                    key={t.name}
+                    onClick={() => handleSelectTheme(t.name)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: currentTheme === t.name ? '#2563eb' : 'transparent',
+                      border: 'none',
+                      color: '#ffffff',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      textAlign: 'left',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {currentTheme === t.name ? <Check size={14} /> : <span style={{ width: '14px' }} />}
+                    <span>{t.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        ) : null}
+
+          {/* Red Admin Button */}
+          <button
+            onClick={() => { setIsAdminMode(true); playClickSound(); }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              border: 'none',
+              color: '#ffffff',
+              padding: '6px 14px',
+              borderRadius: '6px',
+              fontSize: '0.8rem',
+              fontWeight: 900,
+              cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)'
+            }}
+          >
+            <Lock size={14} />
+            <span>ADMIN</span>
+          </button>
+        </div>
       </header>
 
       {/* System Announcement Banner */}
@@ -1401,6 +1403,22 @@ export default function App() {
                   <button type="submit" className="btn" style={{ marginTop: '8px' }}>
                     <UserPlus size={16} /> Register & Join Team
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => { setUsername('Dhruv'); setIsLogged(true); }}
+                    style={{
+                      background: 'rgba(0, 255, 102, 0.1)',
+                      border: '1px solid var(--theme-primary)',
+                      color: 'var(--theme-primary)',
+                      padding: '10px',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⚡ Instant Guest Preview
+                  </button>
                 </form>
               )}
 
@@ -1410,6 +1428,22 @@ export default function App() {
                   <input type="password" className="form-control" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
                   <button type="submit" className="btn" style={{ marginTop: '8px' }}>
                     <Key size={16} /> Access Session
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setUsername('Dhruv'); setIsLogged(true); }}
+                    style={{
+                      background: 'rgba(0, 255, 102, 0.1)',
+                      border: '1px solid var(--theme-primary)',
+                      color: 'var(--theme-primary)',
+                      padding: '10px',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⚡ Instant Guest Preview
                   </button>
                 </form>
               )}

@@ -607,6 +607,38 @@ export default function App() {
     term.open(terminalRef.current);
     fitAddon.fit();
 
+    // Attach custom keyboard/clipboard event handlers (Ctrl/Cmd + C, V, A)
+    term.attachCustomKeyEventHandler((event) => {
+      const key = event.key.toLowerCase();
+      const isCtrlOrMeta = event.ctrlKey || event.metaKey;
+
+      if (event.type === 'keydown') {
+        if (isCtrlOrMeta && key === 'c') {
+          if (term.hasSelection()) {
+            navigator.clipboard.writeText(term.getSelection());
+            return false; // prevent default xterm handling
+          }
+        }
+        if (isCtrlOrMeta && key === 'v') {
+          navigator.clipboard.readText().then(text => {
+            if (text) {
+              const cleanText = text.replace(/[\r\n]+/g, ' '); // remove newlines
+              term.write(cleanText);
+              commandBufferRef.current += cleanText;
+            }
+          }).catch(err => {
+            console.error('Failed to read clipboard:', err);
+          });
+          return false; // prevent default xterm handling
+        }
+        if (isCtrlOrMeta && key === 'a') {
+          term.selectAll();
+          return false; // prevent default xterm handling
+        }
+      }
+      return true;
+    });
+
     // Print welcome banner
     term.writeln('\x1b[1;36mOverTheWire Collaborative Shell Client v1.0.0\x1b[0m');
     term.writeln('Active WebSocket pipeline initialized. Status: \x1b[1;32mCONNECTED\x1b[0m');
@@ -626,7 +658,11 @@ export default function App() {
           if (char === '\r' || char === '\n') {
             const cmd = commandBufferRef.current.trim();
             term.write('\r\n');
-            if (cmd.length > 0) {
+            if (cmd.toLowerCase() === 'clear') {
+              term.clear();
+              commandBufferRef.current = '';
+              writePrompt();
+            } else if (cmd.length > 0) {
               socketRef.current.emit('command:execute', { commandLine: cmd });
               commandBufferRef.current = '';
             } else {
@@ -646,7 +682,11 @@ export default function App() {
         const cmd = commandBufferRef.current.trim();
         term.write('\r\n');
         
-        if (cmd.length > 0) {
+        if (cmd.toLowerCase() === 'clear') {
+          term.clear();
+          commandBufferRef.current = '';
+          writePrompt();
+        } else if (cmd.length > 0) {
           if (cmd.toLowerCase() === 'help') {
             term.writeln('Custom VFS shell commands simulation:');
             term.writeln('  cd, ls, pwd, cat, mkdir, touch, rm, mv, cp, wc, grep, sort, uniq, chmod, head, tail, nano, vim, clear, find');

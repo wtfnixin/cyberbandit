@@ -165,4 +165,48 @@ export async function authRoutes(fastify: FastifyInstance) {
       user: { id: 'admin-id', username: ADMIN_USERNAME, role: 'SUPER_ADMIN' }
     });
   });
+
+  // 5. Safe Level data lookup for students
+  fastify.get('/api/levels/:levelId', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    if (!authHeader) {
+      return reply.code(401).send({ error: 'Access denied: token required' });
+    }
+
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    try {
+      jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return reply.code(401).send({ error: 'Invalid or expired session token' });
+    }
+
+    const { levelId } = request.params as { levelId: string };
+    try {
+      const lvl = await prisma.level.findUnique({
+        where: { id: Number(levelId) },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          points: true,
+          tasks: {
+            select: {
+              id: true,
+              levelId: true,
+              name: true,
+              taskRole: true,
+              hintText: true,
+              startDirectory: true
+            }
+          }
+        }
+      });
+      if (!lvl) {
+        return reply.code(404).send({ error: 'Level not found' });
+      }
+      return reply.send(lvl);
+    } catch (err: any) {
+      return reply.code(500).send({ error: 'Failed to retrieve level parameters', details: err.message });
+    }
+  });
 }

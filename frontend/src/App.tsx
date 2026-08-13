@@ -9,7 +9,6 @@ import {
   MapPin, 
   Copy, 
   CheckCircle2, 
-  Circle, 
   LogOut, 
   Key, 
   Activity,
@@ -17,7 +16,6 @@ import {
   Trash2,
   ArrowLeft,
   BookOpen,
-  Lock,
   Volume2,
   VolumeX,
   Monitor,
@@ -41,6 +39,7 @@ interface Task {
 interface Level {
   id: number;
   title: string;
+  description?: string;
   points: number;
   tasks: Task[];
 }
@@ -137,6 +136,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [progress, setProgress] = useState<Record<string, string>>({});
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
 
   // Socket and UI References
@@ -151,15 +151,13 @@ export default function App() {
   const [currentTheme, setCurrentTheme] = useState<string>('Matrix Green');
   const [showThemeDropdown, setShowThemeDropdown] = useState<boolean>(false);
   const [showCheatSheet, setShowCheatSheet] = useState<boolean>(false);
-  const [showVault, setShowVault] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [passwordSubmissionInput, setPasswordSubmissionInput] = useState<string>('');
   const [revealedHintsCount, setRevealedHintsCount] = useState<number>(0);
-  const [unlockedVaultKeys, setUnlockedVaultKeys] = useState<Record<string, string>>({});
 
   // Admin Session States
-  const [isAdminMode, setIsAdminMode] = useState<boolean>(window.location.pathname === '/admin');
+  const [isAdminMode] = useState<boolean>(window.location.pathname === '/admin');
   const [isLeaderboardPage] = useState<boolean>(window.location.pathname === '/leaderboard');
   const [adminToken, setAdminToken] = useState<string | null>(localStorage.getItem('admin_token'));
   const [isAdminLogged, setIsAdminLogged] = useState<boolean>(!!adminToken);
@@ -572,6 +570,32 @@ export default function App() {
     }
   }, [token]);
 
+  // Synchronize base selectedLevelId with socket's active level
+  useEffect(() => {
+    if (level && selectedLevelId === null) {
+      setSelectedLevelId(level.id);
+    }
+  }, [level, selectedLevelId]);
+
+  // Fetch older/non-active level tasks when selectedLevelId switches
+  useEffect(() => {
+    if (selectedLevelId === null || !token) return;
+    if (level && selectedLevelId === level.id) {
+      setTasks(level.tasks);
+    } else {
+      fetch(`/api/levels/${selectedLevelId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error && data.tasks) {
+            setTasks(data.tasks);
+          }
+        })
+        .catch(err => console.error('Error loading level tasks:', err));
+    }
+  }, [selectedLevelId, level, token]);
+
   // Terminal lifecycle hook
   useEffect(() => {
     if (!isLogged || !terminalRef.current) return;
@@ -662,6 +686,9 @@ export default function App() {
               term.clear();
               commandBufferRef.current = '';
               writePrompt();
+            } else if (cmd.toLowerCase() === 'exit' || cmd.toLowerCase() === 'logout' || cmd.toLowerCase() === 'back') {
+              commandBufferRef.current = '';
+              setActiveTaskId(null);
             } else if (cmd.length > 0) {
               socketRef.current.emit('command:execute', { commandLine: cmd });
               commandBufferRef.current = '';
@@ -686,6 +713,9 @@ export default function App() {
           term.clear();
           commandBufferRef.current = '';
           writePrompt();
+        } else if (cmd.toLowerCase() === 'exit' || cmd.toLowerCase() === 'logout' || cmd.toLowerCase() === 'back') {
+          commandBufferRef.current = '';
+          setActiveTaskId(null);
         } else if (cmd.length > 0) {
           if (cmd.toLowerCase() === 'help') {
             term.writeln('Custom VFS shell commands simulation:');
@@ -751,7 +781,7 @@ export default function App() {
       window.removeEventListener('paste', handleDomPaste);
       term.dispose();
     };
-  }, [isLogged]);
+  }, [isLogged, activeTaskId]);
 
   // Socket client initializer
   const initializeSocket = (userToken: string) => {
@@ -825,7 +855,6 @@ export default function App() {
       if (data.score !== undefined) {
         setTeam(prev => prev ? { ...prev, score: data.score! } : null);
       }
-      setUnlockedVaultKeys(prev => ({ ...prev, [data.taskRole]: data.taskId }));
       addLog(`${data.username} completed ${data.taskRole}!`, 'success');
     });
 
@@ -1277,27 +1306,6 @@ export default function App() {
             <span>Cheat Sheet</span>
           </button>
 
-          {/* Vault Button */}
-          <button
-            onClick={() => { setShowVault(true); playClickSound(); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--theme-border)',
-              color: 'var(--theme-text)',
-              padding: '5px 12px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            <Key size={14} style={{ color: 'var(--theme-primary)' }} />
-            <span>Vault</span>
-          </button>
-
           {/* Sound Toggle */}
           <button
             onClick={() => { setIsMuted(!isMuted); playClickSound(); }}
@@ -1380,28 +1388,6 @@ export default function App() {
               </div>
             )}
           </div>
-
-          {/* Red Admin Button */}
-          <button
-            onClick={() => { setIsAdminMode(true); playClickSound(); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              border: 'none',
-              color: '#ffffff',
-              padding: '6px 14px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              fontWeight: 900,
-              cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)'
-            }}
-          >
-            <Lock size={14} />
-            <span>ADMIN</span>
-          </button>
         </div>
       </header>
 
@@ -1529,41 +1515,55 @@ export default function App() {
                 </form>
               </div>
 
-              {/* Mission Tasks List */}
+              {/* Mission Levels List */}
               <div className="glass-container" style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', minHeight: '260px' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--theme-text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <MapPin size={14} /> LEVEL MISSIONS
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto' }}>
-                  {tasks.map(task => {
-                    const isCompleted = progress[task.taskRole] === 'COMPLETED';
-                    const isActive = activeTaskId === task.id;
+                  {(() => {
+                    const unlockedLevels = [];
+                    const maxLevel = team?.currentLevelId || level?.id || 1;
+                    for (let i = 1; i <= maxLevel; i++) {
+                      unlockedLevels.push(i);
+                    }
+                    return unlockedLevels.map(lvlId => {
+                      const isSelected = selectedLevelId === lvlId;
+                      const isCurrent = (team?.currentLevelId || level?.id) === lvlId;
+                      const title = (level && level.id === lvlId) ? level.title : `Level ${lvlId}: Archive`;
 
-                    return (
-                      <div
-                        key={task.id}
-                        onClick={() => mountTask(task.id)}
-                        style={{
-                          background: isCompleted ? 'rgba(0, 255, 102, 0.08)' : isActive ? 'rgba(56, 189, 248, 0.12)' : 'rgba(0, 0, 0, 0.3)',
-                          border: `1px solid ${isCompleted ? 'var(--theme-primary)' : isActive ? 'var(--cyan)' : 'var(--theme-border)'}`,
-                          borderRadius: '8px',
-                          padding: '10px 12px',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                          <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: isCompleted ? 'var(--theme-primary)' : 'var(--cyan)' }}>{task.taskRole}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{task.points} pts</span>
+                      return (
+                        <div
+                          key={lvlId}
+                          onClick={() => {
+                            setSelectedLevelId(lvlId);
+                            playClickSound();
+                          }}
+                          style={{
+                            background: isSelected ? 'rgba(0, 255, 102, 0.08)' : 'rgba(0, 0, 0, 0.3)',
+                            border: `1px solid ${isSelected ? 'var(--theme-primary)' : 'var(--theme-border)'}`,
+                            borderRadius: '8px',
+                            padding: '10px 12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: isSelected ? 'var(--theme-primary)' : 'var(--theme-text-muted)' }}>LEVEL {lvlId}</span>
+                            <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--theme-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }} title={title}>
+                              {title}
+                            </h4>
+                          </div>
+                          {isCurrent && (
+                            <span style={{ background: 'var(--theme-primary)', color: '#000', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 900 }}>ACTIVE</span>
+                          )}
                         </div>
-                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--theme-text)' }}>{task.name}</h4>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '0.75rem', color: isCompleted ? 'var(--theme-primary)' : 'var(--theme-text-muted)' }}>
-                          {isCompleted ? <CheckCircle2 size={12} /> : isActive ? <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--cyan)', animation: 'pulse 1.5s infinite' }} /> : <Circle size={12} />}
-                          <span>{isCompleted ? 'Solved' : isActive ? 'Active Session' : 'Click to mount'}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 
@@ -1586,112 +1586,229 @@ export default function App() {
             </div>
 
             {/* Center / Right Section (Level Card + Terminal) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}>
-              
-              {/* Level Objective & Hint Box */}
-              <div className="glass-container" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--theme-primary)', background: 'rgba(0, 255, 102, 0.1)', border: '1px solid var(--theme-border)', padding: '2px 8px', borderRadius: '4px' }}>
-                      Level {level?.id || 1}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden', width: '100%', height: '100%' }}>
+              {!activeTaskId ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
+                  <div className="glass-container" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--theme-primary)', background: 'rgba(0, 255, 102, 0.1)', border: '1px solid var(--theme-border)', padding: '2px 8px', borderRadius: '4px', alignSelf: 'flex-start' }}>
+                      LEVEL {selectedLevelId || level?.id || 1} MISSION OVERVIEW
                     </span>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--theme-text)', marginTop: '4px' }}>
-                      {level?.title || 'Loading Level...'}
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--theme-text)', marginTop: '4px' }}>
+                      {level && level.id === selectedLevelId ? level.title : `Level ${selectedLevelId}: Objective Hub`}
                     </h2>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--theme-text-muted)' }}>
+                      {level && level.id === selectedLevelId ? level.description : 'Complete exercises in this target folder workspace to solve the challenge mission.'}
+                    </p>
                   </div>
 
-                  {/* Try Command */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0, 0, 0, 0.6)', border: '1px solid var(--theme-border)', padding: '6px 12px', borderRadius: '6px' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--theme-text-muted)' }}>Try command:</span>
-                    <code style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--theme-primary)' }}>
-                      cat flag.txt
-                    </code>
-                    <button onClick={() => handleCopyCommand('cat flag.txt')} style={{ background: 'transparent', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      <Copy size={14} />
-                    </button>
-                  </div>
-                </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                    {tasks.map(task => {
+                      const isCompleted = progress[task.taskRole] === 'COMPLETED';
+                      return (
+                        <div
+                          key={task.id}
+                          className="glass-container"
+                          style={{
+                            padding: '24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '16px',
+                            background: isCompleted ? 'rgba(0, 255, 102, 0.04)' : 'var(--theme-card-bg)',
+                            border: '1px solid ' + (isCompleted ? 'var(--theme-primary)' : 'var(--theme-border)'),
+                            borderRadius: '8px',
+                            position: 'relative'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{
+                              fontSize: '0.65rem',
+                              fontWeight: 900,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              background: isCompleted ? 'rgba(0, 255, 102, 0.1)' : 'rgba(56, 189, 248, 0.1)',
+                              border: '1px solid ' + (isCompleted ? 'rgba(0, 255, 102, 0.2)' : 'rgba(56, 189, 248, 0.2)'),
+                              color: isCompleted ? 'var(--theme-primary)' : 'var(--cyan)'
+                            }}>
+                              {task.taskRole}
+                            </span>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--theme-text-muted)' }}>
+                              {task.points || 100} PTS
+                            </span>
+                          </div>
 
-                {/* Objective */}
-                <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid var(--theme-border)', borderRadius: '6px', padding: '10px 14px' }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--theme-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
-                    &gt;_ LEVEL OBJECTIVE
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--theme-text)', lineHeight: 1.4 }}>
-                    {tasks.find(t => t.id === activeTaskId)?.hintText || 'Select a task mission from the left sidebar to mount its virtual filesystem into your terminal.'}
-                  </div>
-                </div>
+                          <div style={{ flex: 1 }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--theme-text)' }}>
+                              {task.name}
+                            </h3>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--theme-text-muted)', marginTop: '8px', minHeight: '36px', lineHeight: 1.4 }}>
+                              {task.hintText ? `Objective: ${task.hintText.substring(0, 60)}...` : 'Complete exercises in this target folder workspace to solve the challenge mission.'}
+                            </p>
+                          </div>
 
-                {/* Hint Revealer */}
-                <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid var(--theme-border)', borderRadius: '6px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--theme-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
-                      💡 GUIDED HINTS ({revealedHintsCount}/3)
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--theme-text-muted)' }}>
-                      {revealedHintsCount > 0 ? (
-                        <div style={{ color: 'var(--amber)', fontWeight: 'bold' }}>
-                          Hint #{revealedHintsCount}: {tasks.find(t => t.id === activeTaskId)?.hintText || 'Inspect files with ls -la and cat.'}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--theme-border)', marginTop: '8px' }}>
+                            <span style={{ fontSize: '0.75rem', color: isCompleted ? 'var(--theme-primary)' : 'var(--amber)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {isCompleted ? (
+                                <>
+                                  <CheckCircle2 size={14} /> Solved
+                                </>
+                              ) : (
+                                <>
+                                  <HelpCircle size={14} /> Unsolved
+                                </>
+                              )}
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={() => mountTask(task.id)}
+                            className="btn"
+                            style={{
+                              background: isCompleted ? 'rgba(0, 255, 102, 0.1)' : 'var(--theme-primary)',
+                              border: isCompleted ? '1px solid var(--theme-primary)' : 'none',
+                              color: isCompleted ? 'var(--theme-primary)' : '#000000',
+                              fontWeight: 800,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isCompleted ? '⚡ Re-Open Workspace' : '⚡ Launch Terminal'}
+                          </button>
                         </div>
-                      ) : (
-                        "Stuck? Click 'Reveal Hint' for step-by-step assistance."
-                      )}
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                /* Terminal layout is shown */
+                <>
+                  {/* Level Objective & Hint Box */}
+                  <div className="glass-container" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTaskId(null);
+                            playClickSound();
+                          }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'rgba(0, 0, 0, 0.5)',
+                            border: '1px solid var(--theme-border)',
+                            color: 'var(--theme-primary)',
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          ← Back to Tasks
+                        </button>
+                        <div>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--theme-primary)', background: 'rgba(0, 255, 102, 0.1)', border: '1px solid var(--theme-border)', padding: '2px 8px', borderRadius: '4px' }}>
+                            Level {selectedLevelId || level?.id || 1}
+                          </span>
+                          <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--theme-text)', marginTop: '4px' }}>
+                            {level && level.id === selectedLevelId ? level.title : `Level ${selectedLevelId}`}
+                          </h2>
+                        </div>
+                      </div>
+
+                      {/* Try Command */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0, 0, 0, 0.6)', border: '1px solid var(--theme-border)', padding: '6px 12px', borderRadius: '6px' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--theme-text-muted)' }}>Try command:</span>
+                        <code style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--theme-primary)' }}>
+                          cat flag.txt
+                        </code>
+                        <button onClick={() => handleCopyCommand('cat flag.txt')} style={{ background: 'transparent', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Objective */}
+                    <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid var(--theme-border)', borderRadius: '6px', padding: '10px 14px' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--theme-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                        &gt;_ LEVEL OBJECTIVE
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--theme-text)', lineHeight: 1.4 }}>
+                        {tasks.find(t => t.id === activeTaskId)?.hintText || 'Select a task mission to mount its virtual filesystem into your terminal.'}
+                      </div>
+                    </div>
+
+                    {/* Hint Revealer */}
+                    <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid var(--theme-border)', borderRadius: '6px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--theme-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                          💡 GUIDED HINTS ({revealedHintsCount}/3)
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--theme-text-muted)' }}>
+                          {revealedHintsCount > 0 ? (
+                            <div style={{ color: 'var(--amber)', fontWeight: 'bold' }}>
+                              Hint #{revealedHintsCount}: {tasks.find(t => t.id === activeTaskId)?.hintText || 'Inspect files with ls -la and cat.'}
+                            </div>
+                          ) : (
+                            "Stuck? Click 'Reveal Hint' for step-by-step assistance."
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { setRevealedHintsCount(prev => Math.min(3, prev + 1)); playClickSound(); }}
+                        disabled={revealedHintsCount >= 3}
+                        style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: 'none', color: '#000000', padding: '6px 14px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >
+                        Reveal Hint #{revealedHintsCount + 1}
+                      </button>
                     </div>
                   </div>
-                  <button
-                    onClick={() => { setRevealedHintsCount(prev => Math.min(3, prev + 1)); playClickSound(); }}
-                    disabled={revealedHintsCount >= 3}
-                    style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: 'none', color: '#000000', padding: '6px 14px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  >
-                    Reveal Hint #{revealedHintsCount + 1}
-                  </button>
-                </div>
 
-              </div>
+                  {/* Terminal Panel */}
+                  <div className="glass-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: 'rgba(0, 0, 0, 0.6)', borderBottom: '1px solid var(--theme-border)' }}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }} />
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
+                      </div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--theme-text-muted)' }}>
+                        student@overthewire: {cwdRef.current} (Task: {tasks.find(t => t.id === activeTaskId)?.taskRole})
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => {
+                            if (xtermRef.current) {
+                              xtermRef.current.writeln('\r\nCustom VFS shell commands simulation: cd, ls, pwd, cat, mkdir, touch, rm, mv, cp, wc, grep, sort, uniq, chmod, head, tail, nano, vim, clear, find');
+                              xtermRef.current.writeln('submit <flag-value> - submits flag to complete task');
+                              writePrompt();
+                            }
+                          }}
+                          style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--theme-border)', color: 'var(--theme-text-muted)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <HelpCircle size={12} /> Help
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (xtermRef.current) {
+                              xtermRef.current.clear();
+                              writePrompt();
+                            }
+                          }}
+                          style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--theme-border)', color: 'var(--theme-text-muted)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Trash2 size={12} /> Clear
+                        </button>
+                      </div>
+                    </div>
 
-              {/* Terminal Panel */}
-              <div className="glass-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: 'rgba(0, 0, 0, 0.6)', borderBottom: '1px solid var(--theme-border)' }}>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }} />
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
+                    <div style={{ flex: 1, background: '#020604', position: 'relative' }}>
+                      <div ref={terminalRef} style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: '100%' }} />
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--theme-text-muted)' }}>
-                    student@overthewire: {cwdRef.current}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={() => {
-                        if (xtermRef.current) {
-                          xtermRef.current.writeln('\r\nCustom VFS shell commands simulation: cd, ls, pwd, cat, mkdir, touch, rm, mv, cp, wc, grep, sort, uniq, chmod, head, tail, nano, vim, clear, find');
-                          xtermRef.current.writeln('submit <flag-value> - submits flag to complete task');
-                          writePrompt();
-                        }
-                      }}
-                      style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--theme-border)', color: 'var(--theme-text-muted)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <HelpCircle size={12} /> Help
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (xtermRef.current) {
-                          xtermRef.current.clear();
-                          writePrompt();
-                        }
-                      }}
-                      style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--theme-border)', color: 'var(--theme-text-muted)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <Trash2 size={12} /> Clear
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ flex: 1, background: '#020604', position: 'relative' }}>
-                  <div ref={terminalRef} style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: '100%' }} />
-                </div>
-              </div>
-
+                </>
+              )}
             </div>
           </div>
         )}
@@ -1724,32 +1841,6 @@ export default function App() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Vault Modal */}
-      {showVault && (
-        <div className="modal-overlay" onClick={() => setShowVault(false)}>
-          <div className="glass-container" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px', padding: '24px', background: '#040d07', border: '1px solid var(--theme-primary)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--theme-border)', paddingBottom: '12px' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--theme-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Key size={20} /> UNLOCKED FLAGS VAULT
-              </h2>
-              <button onClick={() => setShowVault(false)} style={{ background: 'transparent', border: 'none', color: 'var(--theme-text-muted)', cursor: 'pointer' }}><X size={20} /></button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto' }}>
-              {Object.keys(unlockedVaultKeys).length === 0 ? (
-                <span style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--theme-text-muted)' }}>No completed mission flags unlocked yet. Solve tasks to fill vault.</span>
-              ) : (
-                Object.entries(unlockedVaultKeys).map(([role, taskId]) => (
-                  <div key={role} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--theme-border)', padding: '8px 12px', borderRadius: '6px' }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--theme-primary)' }}>{role}</span>
-                    <code style={{ fontSize: '0.8rem', color: 'var(--theme-text)' }}>{taskId}</code>
-                  </div>
-                ))
-              )}
             </div>
           </div>
         </div>

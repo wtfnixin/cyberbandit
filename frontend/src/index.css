@@ -1,5 +1,14 @@
-/* Modern Design Tokens */
+/* Modern Design Tokens & Theme System */
 :root {
+  --theme-primary: #00ff66;
+  --theme-primary-glow: rgba(0, 255, 102, 0.25);
+  --theme-bg: #040b07;
+  --theme-card-bg: rgba(6, 18, 12, 0.75);
+  --theme-border: rgba(0, 255, 102, 0.2);
+  --theme-border-hover: rgba(0, 255, 102, 0.5);
+  --theme-text: #e2fbe8;
+  --theme-text-muted: #4ade80;
+  
   --bg-space: #090c14;
   --bg-glass: rgba(17, 24, 39, 0.7);
   --border-glass: rgba(56, 189, 248, 0.15);
@@ -8,16 +17,64 @@
   --cyan: #38bdf8;
   --indigo: #6366f1;
   --violet: #8b5cf6;
-  --jade: #10b981;
-  --amber: #f89e1b;
-  --rose: #f43f5e;
+  --jade: #00ff66;
+  --amber: #f59e0b;
+  --rose: #ef4444;
   
   --text-primary: #f8fafc;
   --text-muted: #94a3b8;
   
-  --shadow-neon: 0 0 20px rgba(56, 189, 248, 0.15);
-  --font-display: 'Outfit', sans-serif;
-  --font-mono: 'Space Mono', monospace;
+  --shadow-neon: 0 0 20px rgba(0, 255, 102, 0.15);
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Space Mono', monospace;
+}
+
+/* Theme: Matrix Green (Default) */
+body.theme-matrix-green {
+  --theme-primary: #00ff66;
+  --theme-primary-glow: rgba(0, 255, 102, 0.3);
+  --theme-bg: #030a05;
+  --theme-card-bg: rgba(4, 15, 8, 0.8);
+  --theme-border: rgba(0, 255, 102, 0.22);
+  --theme-border-hover: rgba(0, 255, 102, 0.6);
+  --theme-text: #dcfce7;
+  --theme-text-muted: #4ade80;
+}
+
+/* Theme: Cyber Neon */
+body.theme-cyber-neon {
+  --theme-primary: #00f3ff;
+  --theme-primary-glow: rgba(0, 243, 255, 0.3);
+  --theme-bg: #070614;
+  --theme-card-bg: rgba(13, 12, 34, 0.8);
+  --theme-border: rgba(0, 243, 255, 0.22);
+  --theme-border-hover: rgba(0, 243, 255, 0.6);
+  --theme-text: #e0f2fe;
+  --theme-text-muted: #38bdf8;
+}
+
+/* Theme: Hacker Amber */
+body.theme-hacker-amber {
+  --theme-primary: #fbbf24;
+  --theme-primary-glow: rgba(251, 191, 36, 0.3);
+  --theme-bg: #0f0a04;
+  --theme-card-bg: rgba(24, 16, 6, 0.8);
+  --theme-border: rgba(251, 191, 36, 0.22);
+  --theme-border-hover: rgba(251, 191, 36, 0.6);
+  --theme-text: #fef3c7;
+  --theme-text-muted: #f59e0b;
+}
+
+/* Theme: Dark Slate */
+body.theme-dark-slate {
+  --theme-primary: #38bdf8;
+  --theme-primary-glow: rgba(56, 189, 248, 0.3);
+  --theme-bg: #090c14;
+  --theme-card-bg: rgba(15, 23, 42, 0.8);
+  --theme-border: rgba(56, 189, 248, 0.22);
+  --theme-border-hover: rgba(56, 189, 248, 0.6);
+  --theme-text: #f8fafc;
+  --theme-text-muted: #94a3b8;
 }
 
 /* Reset */
@@ -28,14 +85,15 @@
 }
 
 body {
-  background-color: var(--bg-space);
+  background-color: var(--theme-bg);
   background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.08) 0px, transparent 50%);
-  color: var(--text-primary);
-  font-family: var(--font-display);
+    radial-gradient(at 0% 0%, rgba(0, 255, 102, 0.04) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(0, 255, 102, 0.04) 0px, transparent 50%);
+  color: var(--theme-text);
+  font-family: var(--font-mono);
   min-height: 100vh;
   overflow: hidden;
+  transition: background-color 0.3s ease;
 }
 
 /* Customized Scrollbars */
@@ -44,34 +102,33 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.2);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--theme-border);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--theme-primary);
 }
 
 /* Glassmorphism Util Classes */
 .glass-container {
-  background: var(--bg-glass);
+  background: var(--theme-card-bg);
   backdrop-filter: blur(16px);
-  border: 1px solid var(--border-glass);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  border-radius: 16px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--theme-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
 .glass-container:hover {
-  border-color: var(--border-glow);
-  box-shadow: 0 12px 40px 0 rgba(56, 189, 248, 0.08);
+  border-color: var(--theme-border-hover);
 }
 
 /* Custom terminal integration styling rules for xterm.js */
 .xterm {
-  padding: 10px;
+  padding: 12px;
 }
 
 .xterm-viewport {
@@ -79,74 +136,89 @@ body {
 }
 
 .terminal-wrapper {
-  background: #06090e;
-  border-radius: 12px;
-  border: 1px solid var(--border-glass);
+  background: #020604;
+  border-radius: 8px;
+  border: 1px solid var(--theme-border);
   overflow: hidden;
   height: 100%;
 }
 
 /* Custom Input CSS definition */
 .form-control {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--border-glass);
-  border-radius: 10px;
-  color: var(--text-primary);
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  padding: 12px 16px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  color: var(--theme-text);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  transition: all 0.2s ease;
   outline: none;
   width: 100%;
 }
 
 .form-control:focus {
-  border-color: var(--cyan);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
-  background: rgba(15, 23, 42, 0.8);
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 10px var(--theme-primary-glow);
+  background: rgba(0, 0, 0, 0.6);
 }
 
 /* Custom Button CSS definition */
 .btn {
-  background: linear-gradient(135deg, var(--cyan) 0%, var(--indigo) 100%);
+  background: var(--theme-primary);
   border: none;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
-  color: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px var(--theme-primary-glow);
+  color: #000000;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 600;
-  padding: 12px 24px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 16px;
+  transition: all 0.2s ease;
   width: 100%;
 }
 
 .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35);
-  opacity: 0.95;
+  filter: brightness(1.1);
+  box-shadow: 0 4px 15px var(--theme-primary-glow);
 }
 
 .btn:active {
   transform: translateY(1px);
-  opacity: 0.85;
+}
+
+/* Modal Overlay backdrop */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 24px;
 }
 
 /* Pulsating Animation for active workspace */
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7);
+    box-shadow: 0 0 0 0 var(--theme-primary-glow);
   }
   70% {
-    box-shadow: 0 0 0 8px rgba(56, 189, 248, 0);
+    box-shadow: 0 0 0 8px rgba(0, 0, 0, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
   }
 }
+
 

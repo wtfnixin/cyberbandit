@@ -21,7 +21,8 @@ enum ValidationType {
 model User {
   id           String       @id @default(uuid())
   username     String       @unique
-  passwordHash String
+  email        String?      @unique
+  passwordHash String?
   role         Role         @default(STUDENT)
   teamId       String?
   team         Team?        @relation(fields: [teamId], references: [id])
@@ -30,19 +31,30 @@ model User {
 }
 
 model Team {
-  id             String       @id @default(uuid())
-  name           String       @unique
-  inviteCode     String       @unique
-  score          Int          @default(0)
-  streakCount    Int          @default(0)
-  currentLevelId Int          @default(1)
-  currentLevel   Level        @relation(fields: [currentLevelId], references: [id])
+  id             String             @id @default(uuid())
+  name           String             @unique
+  inviteCode     String             @unique
+  score          Int                @default(0)
+  streakCount    Int                @default(0)
+  currentLevelId Int                @default(1)
+  currentLevel   Level              @relation(fields: [currentLevelId], references: [id])
   users          User[]
+  allowedEmails  TeamAllowedEmail[]
   submissions    Submission[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@index([score(desc), updatedAt(asc)])
+}
+
+model TeamAllowedEmail {
+  id      String  @id @default(uuid())
+  teamId  String
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  email   String  @unique
+  name    String?
+
+  @@unique([teamId, email])
 }
 
 model Level {

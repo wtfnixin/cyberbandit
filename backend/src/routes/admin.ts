@@ -32,7 +32,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const teams = await prisma.team.findMany({
         include: {
           users: true,
-          currentLevel: true
+          currentLevel: true,
+          allowedEmails: true
         },
         orderBy: {
           score: 'desc'
@@ -44,9 +45,12 @@ export async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // 2. Create a team
+  // 2. Create a team (with optional pre-registered allowed members/emails)
   fastify.post('/api/admin/teams', async (request, reply) => {
-    const { name } = request.body as { name: string };
+    const { name, members } = request.body as {
+      name: string;
+      members?: Array<{ email: string; name?: string }>;
+    };
     if (!name || !name.trim()) {
       return reply.code(400).send({ error: 'Team name is required' });
     }
@@ -58,13 +62,24 @@ export async function adminRoutes(fastify: FastifyInstance) {
           name: name.trim(),
           inviteCode,
           score: 0,
-          currentLevelId: 1
+          currentLevelId: 1,
+          allowedEmails: members && members.length > 0 ? {
+            createMany: {
+              data: members.map(m => ({
+                email: m.email.trim().toLowerCase(),
+                name: m.name ? m.name.trim() : null
+              }))
+            }
+          } : undefined
+        },
+        include: {
+          allowedEmails: true
         }
       });
       return reply.code(201).send(team);
     } catch (err: any) {
       if (err.code === 'P2002') {
-        return reply.code(400).send({ error: 'Team name is already taken' });
+        return reply.code(400).send({ error: 'Team name or pre-registered email is already taken' });
       }
       return reply.code(500).send({ error: 'Failed to create team', details: err.message });
     }

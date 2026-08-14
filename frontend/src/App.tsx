@@ -126,7 +126,7 @@ export default function App() {
   
   // Auth Input Form States
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -917,8 +917,8 @@ export default function App() {
 
   const handleJoinTeam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password || !inviteCode) {
-      return setAuthError('All fields are required');
+    if (!inviteCode || !email) {
+      return setAuthError('Team Code and Email ID are required');
     }
     setAuthError(null);
 
@@ -926,7 +926,7 @@ export default function App() {
       const res = await fetch('/api/auth/join-team', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, inviteCode })
+        body: JSON.stringify({ inviteCode, email })
       });
       const data = await res.json();
       if (data.error) {
@@ -935,7 +935,7 @@ export default function App() {
         setToken(data.token);
       }
     } catch (err: any) {
-      setAuthError('Joining team failed: ' + err.message);
+      setAuthError('Accessing workspace failed: ' + err.message);
     }
   };
 
@@ -1387,15 +1387,14 @@ export default function App() {
               {authError && <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--rose)', color: 'var(--rose)', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>{authError}</div>}
 
               <form onSubmit={handleJoinTeam} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <input type="text" className="form-control" placeholder="Enter Team Invite Code" style={{ textTransform: 'uppercase' }} value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
-                <input type="text" className="form-control" placeholder="Player Character Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-                <input type="password" className="form-control" placeholder="Account Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input type="text" className="form-control" placeholder="Enter Team Code" style={{ textTransform: 'uppercase' }} value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
+                <input type="email" className="form-control" placeholder="Pre-registered Email ID" value={email} onChange={(e) => setEmail(e.target.value)} />
                 <button type="submit" className="btn" style={{ marginTop: '8px' }}>
-                  <UserPlus size={16} /> Register & Join Team
+                  <UserPlus size={16} /> Authenticate & Access Workspace
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setUsername('Dhruv'); setIsLogged(true); }}
+                  onClick={() => { setUsername('Dhruv'); setEmail('guest@demo.com'); setIsLogged(true); }}
                   style={{
                     background: 'rgba(0, 255, 102, 0.1)',
                     border: '1px solid var(--theme-primary)',

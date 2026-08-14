@@ -41,36 +41,84 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // 2. Join a Team (Registers User link to invite code)
+  // 2. Join/Login to a Team (via Team Code + Email ID)
   fastify.post('/api/auth/join-team', async (request, reply) => {
-    const { username, password, inviteCode } = request.body as {
-      username: string;
-      password?: string;
+    const { inviteCode, email } = request.body as {
       inviteCode: string;
+      email: string;
     };
 
-    if (!username || !password || !inviteCode) {
-      return reply.code(400).send({ error: 'Username, password, and Invite Code are required' });
+    if (!inviteCode || !email) {
+      return reply.code(400).send({ error: 'Team Code and Email ID are required' });
     }
 
     try {
       const team = await prisma.team.findUnique({
-        where: { inviteCode: inviteCode.trim().toUpperCase() }
+        where: { inviteCode: inviteCode.trim().toUpperCase() },
+        include: { allowedEmails: true }
       });
 
       if (!team) {
-        return reply.code(400).send({ error: 'Invalid invite code' });
+        return reply.code(400).send({ error: 'Invalid Team Code' });
       }
 
-      const passwordHash = await bcrypt.hash(password, 10);
-      const user = await prisma.user.create({
-        data: {
-          username: username.trim(),
-          passwordHash,
-          role: 'STUDENT',
-          teamId: team.id
-        }
+      const emailTrimmed = email.trim().toLowerCase();
+
+      // Check if email is in preloaded allowed list
+      const allowedEntry = team.allowedEmails.find(
+        (ae) => ae.email.toLowerCase() === emailTrimmed
+      );
+
+      if (!allowedEntry) {
+        return reply.code(403).send({ error: 'This email is not registered for this team.' });
+      }
+
+      // Check if user account already exists under this email
+      let user = await prisma.user.findUnique({
+        where: { email: emailTrimmed }
       });
+
+      if (user) {
+        // User already exists, restore session
+        if (user.teamId !== team.id) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { teamId: team.id }
+          });
+        }
+      } else {
+        // First login, check limit
+        const activeUsersCount = await prisma.user.count({
+          where: { teamId: team.id }
+        });
+
+        if (activeUsersCount >= 2) {
+          return reply.code(400).send({
+            error: 'Failed to access: Max limit reached. Only 2 active players are allowed per team.'
+          });
+        }
+
+        // Generate clean unique username
+        let candidateUsername = allowedEntry.name?.trim() || emailTrimmed.split('@')[0];
+        candidateUsername = candidateUsername.replace(/\s+/g, '-').toLowerCase();
+
+        const existingUsername = await prisma.user.findUnique({
+          where: { username: candidateUsername }
+        });
+
+        if (existingUsername) {
+          candidateUsername += `-${Math.random().toString(36).substring(2, 6)}`;
+        }
+
+        user = await prisma.user.create({
+          data: {
+            username: candidateUsername,
+            email: emailTrimmed,
+            role: 'STUDENT',
+            teamId: team.id
+          }
+        });
+      }
 
       const token = jwt.sign(
         { userId: user.id, username: user.username, role: user.role, teamId: team.id },
@@ -78,17 +126,14 @@ export async function authRoutes(fastify: FastifyInstance) {
         { expiresIn: '6h' }
       );
 
-      return reply.code(201).send({
-        message: 'Joined team successfully',
+      return reply.code(200).send({
+        message: 'Access granted successfully',
         token,
         user: { id: user.id, username: user.username, role: user.role },
         team: { id: team.id, name: team.name }
       });
     } catch (err: any) {
-      if (err.code === 'P2002') {
-        return reply.code(400).send({ error: 'Username is already taken' });
-      }
-      return reply.code(500).send({ error: 'Failed to join team', details: err.message });
+      return reply.code(500).send({ error: 'Authentication failed', details: err.message });
     }
   });
 
@@ -105,7 +150,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         include: { team: true }
       });
 
-      if (!user) {
+      if (!user || !user.passwordHash) {
         return reply.code(401).send({ error: 'Invalid username or password' });
       }
 

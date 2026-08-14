@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../services/db';
 import * as jwt from 'jsonwebtoken';
+import { onlineUsers } from '../gateway/socket';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
 
@@ -39,7 +40,16 @@ export async function adminRoutes(fastify: FastifyInstance) {
           score: 'desc'
         }
       });
-      return reply.send(teams);
+      const mapped = teams.map(team => {
+        return {
+          ...team,
+          users: team.users.map(u => ({
+            ...u,
+            online: onlineUsers.has(u.id)
+          }))
+        };
+      });
+      return reply.send(mapped);
     } catch (err: any) {
       return reply.code(500).send({ error: 'Failed to fetch teams', details: err.message });
     }

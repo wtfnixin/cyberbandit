@@ -17,6 +17,8 @@ import { DirectoryNode } from '../engine/types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
 
+export const onlineUsers = new Set<string>();
+
 interface DecodedToken {
   userId: string;
   username: string;
@@ -104,6 +106,11 @@ export function registerSocketGateway(io: Server) {
     // Join the Socket.IO room for team broadcasts
     await socket.join(teamRoom);
     console.log(`User ${username} (${userId}) connected to room ${teamRoom}`);
+
+    if (role === 'STUDENT') {
+      onlineUsers.add(userId);
+      io.to('admin:room').emit('admin:teams:refresh');
+    }
 
     // Send initial team stats and level information
     const team = await getTeam(teamId);
@@ -333,6 +340,10 @@ export function registerSocketGateway(io: Server) {
     });
 
     socket.on('disconnect', () => {
+      if (role === 'STUDENT') {
+        onlineUsers.delete(userId);
+        io.to('admin:room').emit('admin:teams:refresh');
+      }
       console.log(`User ${username} (${userId}) disconnected`);
     });
   });

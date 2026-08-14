@@ -118,6 +118,19 @@ const THEMES = [
   { name: 'Dark Slate', color: '#38bdf8', termBg: '#090c14', termFg: '#38bdf8' }
 ];
 
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
 export default function App() {
   // Auth Session States
   const [token, setToken] = useState<string | null>(localStorage.getItem('jwt_token'));
@@ -126,7 +139,7 @@ export default function App() {
   
   // Auth Input Form States
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -168,6 +181,11 @@ export default function App() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [adminLogs, setAdminLogs] = useState<any[]>([]);
   const [newTeamName, setNewTeamName] = useState('');
+  const [newMember1Name, setNewMember1Name] = useState('');
+  const [newMember1Email, setNewMember1Email] = useState('');
+  const [newMember2Name, setNewMember2Name] = useState('');
+  const [newMember2Email, setNewMember2Email] = useState('');
+  const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
   const [showAdminLeaderboard, setShowAdminLeaderboard] = useState(false);
   const [announcement, setAnnouncement] = useState<string | null>(null);
 
@@ -467,6 +485,14 @@ export default function App() {
     e.preventDefault();
     if (!newTeamName.trim()) return;
 
+    const members = [];
+    if (newMember1Email.trim()) {
+      members.push({ email: newMember1Email.trim(), name: newMember1Name.trim() || undefined });
+    }
+    if (newMember2Email.trim()) {
+      members.push({ email: newMember2Email.trim(), name: newMember2Name.trim() || undefined });
+    }
+
     try {
       const res = await fetch('/api/admin/teams', {
         method: 'POST',
@@ -474,13 +500,17 @@ export default function App() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}`
         },
-        body: JSON.stringify({ name: newTeamName })
+        body: JSON.stringify({ name: newTeamName.trim(), members })
       });
       const data = await res.json();
       if (data.error) {
         alert(data.error);
       } else {
         setNewTeamName('');
+        setNewMember1Name('');
+        setNewMember1Email('');
+        setNewMember2Name('');
+        setNewMember2Email('');
         if (adminToken) fetchTeams(adminToken);
       }
     } catch (err: any) {
@@ -541,6 +571,10 @@ export default function App() {
       fetchTeams(tokenVal);
     });
 
+    socket.on('admin:teams:refresh', () => {
+      fetchTeams(tokenVal);
+    });
+
     socket.on('disconnect', () => {
       addAdminLog('Admin Pipeline severed. Sync offline.', 'system');
     });
@@ -563,10 +597,15 @@ export default function App() {
     if (token) {
       localStorage.setItem('jwt_token', token);
       setIsLogged(true);
+      const decoded = parseJwt(token);
+      if (decoded && decoded.username) {
+        setUsername(decoded.username);
+      }
       initializeSocket(token);
     } else {
       localStorage.removeItem('jwt_token');
       setIsLogged(false);
+      setUsername('');
     }
   }, [token]);
 
@@ -917,8 +956,8 @@ export default function App() {
 
   const handleJoinTeam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password || !inviteCode) {
-      return setAuthError('All fields are required');
+    if (!inviteCode || !email) {
+      return setAuthError('Team Code and Email ID are required');
     }
     setAuthError(null);
 
@@ -926,16 +965,19 @@ export default function App() {
       const res = await fetch('/api/auth/join-team', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, inviteCode })
+        body: JSON.stringify({ inviteCode, email })
       });
       const data = await res.json();
       if (data.error) {
         setAuthError(data.error);
       } else {
+        if (data.user && data.user.username) {
+          setUsername(data.user.username);
+        }
         setToken(data.token);
       }
     } catch (err: any) {
-      setAuthError('Joining team failed: ' + err.message);
+      setAuthError('Accessing workspace failed: ' + err.message);
     }
   };
 
@@ -1081,16 +1123,86 @@ export default function App() {
             </div>
           ) : (
             adminTab === 'dashboard' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.25fr 1fr', gap: '16px', width: '100%', height: '100%' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.25fr 1fr', gap: '16px', width: '100%', height: '100%' }}>
                 <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
                   <h3 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '16px', color: 'var(--theme-text)' }}>Registered Teams ({adminTeams.length})</h3>
                   <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {adminTeams.map(t => (
-                      <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.3)', border: '1px solid var(--theme-border)', padding: '10px 14px', borderRadius: '8px' }}>
-                        <div><strong>{t.name}</strong> <span style={{ fontSize: '0.75rem', color: 'var(--theme-text-muted)' }}>Code: {t.inviteCode}</span></div>
-                        <button onClick={() => handleDeleteTeam(t.id)} style={{ background: 'transparent', border: 'none', color: 'var(--rose)', cursor: 'pointer' }}><Trash2 size={16} /></button>
-                      </div>
-                    ))}
+                    {adminTeams.map(t => {
+                      const isExpanded = expandedTeamId === t.id;
+                      return (
+                        <div key={t.id} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(15, 23, 42, 0.3)', border: '1px solid var(--theme-border)', borderRadius: '8px', overflow: 'hidden' }}>
+                          <div 
+                            onClick={() => setExpandedTeamId(isExpanded ? null : t.id)}
+                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', cursor: 'pointer', background: 'rgba(255,255,255,0.01)' }}
+                          >
+                            <div style={{ flex: 1 }}>
+                              <strong style={{ fontSize: '0.85rem' }}>{t.name}</strong> 
+                              <div style={{ fontSize: '0.7rem', color: 'var(--theme-text-muted)', marginTop: '2px' }}>
+                                Code: <span style={{ color: 'var(--theme-primary)', fontWeight: 'bold' }}>{t.inviteCode}</span>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }} onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => handleDeleteTeam(t.id)} style={{ background: 'transparent', border: 'none', color: 'var(--rose)', cursor: 'pointer' }}>
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div style={{ padding: '12px', background: 'rgba(0,0,0,0.25)', borderTop: '1px solid var(--theme-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--theme-primary)', letterSpacing: '0.5px' }}>ROSTER & LIVE STATUS:</div>
+                              {(!t.allowedEmails || t.allowedEmails.length === 0) ? (
+                                <div style={{ fontSize: '0.75rem', color: 'var(--theme-text-muted)', fontStyle: 'italic' }}>No members pre-registered.</div>
+                              ) : (
+                                t.allowedEmails.map((ae: any) => {
+                                  const linkedUser = t.users?.find((u: any) => u.email?.toLowerCase() === ae.email.toLowerCase());
+                                  const isJoined = !!linkedUser;
+                                  const isUserOnline = linkedUser?.online;
+
+                                  return (
+                                    <div key={ae.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '6px 10px', borderRadius: '4px', fontSize: '0.75rem' }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, paddingRight: '12px' }}>
+                                        <span style={{ fontWeight: 'bold', color: 'var(--theme-text)' }}>{ae.name || 'Unnamed Player'}</span>
+                                        <span style={{ fontSize: '0.65rem', color: 'var(--theme-text-muted)' }}>{ae.email}</span>
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {isJoined ? (
+                                          <>
+                                            <span style={{ fontSize: '0.65rem', color: 'var(--theme-text-muted)' }}>@{linkedUser.username}</span>
+                                            <span style={{
+                                              display: 'inline-block',
+                                              width: '8px',
+                                              height: '8px',
+                                              borderRadius: '50%',
+                                              background: isUserOnline ? '#10b981' : '#6b7280',
+                                              boxShadow: isUserOnline ? '0 0 8px #10b981' : 'none'
+                                            }} />
+                                            <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: isUserOnline ? '#10b981' : '#9ca3af' }}>
+                                              {isUserOnline ? 'Online' : 'Offline'}
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <span style={{ fontSize: '0.7rem', fontStyle: 'italic', color: 'var(--theme-text-muted)' }}>Offline</span>
+                                            <span style={{
+                                              display: 'inline-block',
+                                              width: '8px',
+                                              height: '8px',
+                                              borderRadius: '50%',
+                                              background: '#6b7280'
+                                            }} />
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
@@ -1106,10 +1218,23 @@ export default function App() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div className="glass-container" style={{ padding: '20px' }}>
-                    <h3 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '16px' }}>Add New Team</h3>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '16px', color: 'var(--theme-primary)' }}>Add New Team</h3>
                     <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <input type="text" className="form-control" placeholder="Team Name" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} />
-                      <button type="submit" className="btn">Create Team</button>
+                      <input type="text" className="form-control" placeholder="Team Name" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} required />
+                      
+                      <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--theme-text-muted)', borderBottom: '1px solid var(--theme-border)', paddingBottom: '4px', marginTop: '6px' }}>MEMBER 1</div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input type="text" className="form-control" style={{ flex: 1 }} placeholder="Name / USN" value={newMember1Name} onChange={(e) => setNewMember1Name(e.target.value)} />
+                        <input type="email" className="form-control" style={{ flex: 1.5 }} placeholder="Email ID" value={newMember1Email} onChange={(e) => setNewMember1Email(e.target.value)} />
+                      </div>
+
+                      <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--theme-text-muted)', borderBottom: '1px solid var(--theme-border)', paddingBottom: '4px', marginTop: '6px' }}>MEMBER 2</div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input type="text" className="form-control" style={{ flex: 1 }} placeholder="Name / USN" value={newMember2Name} onChange={(e) => setNewMember2Name(e.target.value)} />
+                        <input type="email" className="form-control" style={{ flex: 1.5 }} placeholder="Email ID" value={newMember2Email} onChange={(e) => setNewMember2Email(e.target.value)} />
+                      </div>
+
+                      <button type="submit" className="btn" style={{ marginTop: '12px' }}>Create Team</button>
                     </form>
                   </div>
                   <div className="glass-container" style={{ padding: '20px' }}>
@@ -1387,15 +1512,14 @@ export default function App() {
               {authError && <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--rose)', color: 'var(--rose)', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>{authError}</div>}
 
               <form onSubmit={handleJoinTeam} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <input type="text" className="form-control" placeholder="Enter Team Invite Code" style={{ textTransform: 'uppercase' }} value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
-                <input type="text" className="form-control" placeholder="Player Character Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-                <input type="password" className="form-control" placeholder="Account Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input type="text" className="form-control" placeholder="Enter Team Code" style={{ textTransform: 'uppercase' }} value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
+                <input type="email" className="form-control" placeholder="Pre-registered Email ID" value={email} onChange={(e) => setEmail(e.target.value)} />
                 <button type="submit" className="btn" style={{ marginTop: '8px' }}>
-                  <UserPlus size={16} /> Register & Join Team
+                  <UserPlus size={16} /> Authenticate & Access Workspace
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setUsername('Dhruv'); setIsLogged(true); }}
+                  onClick={() => { setUsername('Dhruv'); setEmail('guest@demo.com'); setIsLogged(true); }}
                   style={{
                     background: 'rgba(0, 255, 102, 0.1)',
                     border: '1px solid var(--theme-primary)',

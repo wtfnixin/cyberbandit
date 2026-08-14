@@ -17,6 +17,8 @@ import { DirectoryNode } from '../engine/types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
 
+export const onlineUsers = new Set<string>();
+
 interface DecodedToken {
   userId: string;
   username: string;
@@ -79,6 +81,7 @@ export function registerSocketGateway(io: Server) {
 
   io.on('connection', async (socket: Socket) => {
     const { userId, username, teamId, role } = socket.data;
+    console.log(`[Socket Connection] Debug Details: userId=${userId}, username=${username}, teamId=${teamId}, role=${role}`);
 
     if (role === 'GUEST') {
       console.log('Guest connected for public live standings tracker');
@@ -104,6 +107,12 @@ export function registerSocketGateway(io: Server) {
     // Join the Socket.IO room for team broadcasts
     await socket.join(teamRoom);
     console.log(`User ${username} (${userId}) connected to room ${teamRoom}`);
+
+    if (role === 'STUDENT') {
+      onlineUsers.add(userId);
+      console.log(`[Socket] Added STUDENT user ${userId} to onlineUsers. Active count: ${onlineUsers.size}`);
+      io.to('admin:room').emit('admin:teams:refresh');
+    }
 
     // Send initial team stats and level information
     const team = await getTeam(teamId);
@@ -333,6 +342,11 @@ export function registerSocketGateway(io: Server) {
     });
 
     socket.on('disconnect', () => {
+      if (role === 'STUDENT') {
+        onlineUsers.delete(userId);
+        console.log(`[Socket] Removed STUDENT user ${userId} from onlineUsers. Active count: ${onlineUsers.size}`);
+        io.to('admin:room').emit('admin:teams:refresh');
+      }
       console.log(`User ${username} (${userId}) disconnected`);
     });
   });

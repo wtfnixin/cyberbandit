@@ -122,7 +122,7 @@ export default function App() {
   // Auth Session States
   const [token, setToken] = useState<string | null>(localStorage.getItem('jwt_token'));
   const [isLogged, setIsLogged] = useState<boolean>(!!token);
-  const [authMode, setAuthMode] = useState<'login' | 'join'>('join');
+
   
   // Auth Input Form States
   const [username, setUsername] = useState('');
@@ -939,30 +939,6 @@ export default function App() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username || !password) {
-      return setAuthError('Username and password are required');
-    }
-    setAuthError(null);
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (data.error) {
-        setAuthError(data.error);
-      } else {
-        setToken(data.token);
-      }
-    } catch (err: any) {
-      setAuthError('Login request failed: ' + err.message);
-    }
-  };
-
   const mountTask = (taskId: string) => {
     if (socketRef.current) {
       socketRef.current.emit('task:mount', { taskId });
@@ -1404,75 +1380,36 @@ export default function App() {
         {!isLogged ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
             <div className="glass-container" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-              <div style={{ display: 'flex', borderBottom: '1px solid var(--theme-border)', marginBottom: '24px' }}>
-                <button 
-                  onClick={() => { setAuthMode('join'); setAuthError(null); }}
-                  style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: authMode === 'join' ? '2px solid var(--theme-primary)' : 'none', color: authMode === 'join' ? 'var(--theme-primary)' : 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}
-                >
-                  Join Team
-                </button>
-                <button 
-                  onClick={() => { setAuthMode('login'); setAuthError(null); }}
-                  style={{ flex: 1, padding: '12px', background: 'transparent', border: 'none', borderBottom: authMode === 'login' ? '2px solid var(--theme-primary)' : 'none', color: authMode === 'login' ? 'var(--theme-primary)' : 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}
-                >
-                  Sign In
-                </button>
-              </div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--theme-primary)', marginBottom: '24px', textAlign: 'center', letterSpacing: '1px' }}>
+                ENTER COMPONENT WORKSPACE
+              </h2>
 
               {authError && <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--rose)', color: 'var(--rose)', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>{authError}</div>}
 
-              {authMode === 'join' && (
-                <form onSubmit={handleJoinTeam} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <input type="text" className="form-control" placeholder="Enter Team Invite Code" style={{ textTransform: 'uppercase' }} value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
-                  <input type="text" className="form-control" placeholder="Player Character Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-                  <input type="password" className="form-control" placeholder="Account Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                  <button type="submit" className="btn" style={{ marginTop: '8px' }}>
-                    <UserPlus size={16} /> Register & Join Team
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setUsername('Dhruv'); setIsLogged(true); }}
-                    style={{
-                      background: 'rgba(0, 255, 102, 0.1)',
-                      border: '1px solid var(--theme-primary)',
-                      color: 'var(--theme-primary)',
-                      padding: '10px',
-                      borderRadius: '6px',
-                      fontSize: '0.8rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ⚡ Instant Guest Preview
-                  </button>
-                </form>
-              )}
-
-              {authMode === 'login' && (
-                <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <input type="text" className="form-control" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-                  <input type="password" className="form-control" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                  <button type="submit" className="btn" style={{ marginTop: '8px' }}>
-                    <Key size={16} /> Access Session
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setUsername('Dhruv'); setIsLogged(true); }}
-                    style={{
-                      background: 'rgba(0, 255, 102, 0.1)',
-                      border: '1px solid var(--theme-primary)',
-                      color: 'var(--theme-primary)',
-                      padding: '10px',
-                      borderRadius: '6px',
-                      fontSize: '0.8rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ⚡ Instant Guest Preview
-                  </button>
-                </form>
-              )}
+              <form onSubmit={handleJoinTeam} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <input type="text" className="form-control" placeholder="Enter Team Invite Code" style={{ textTransform: 'uppercase' }} value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
+                <input type="text" className="form-control" placeholder="Player Character Username" value={username} onChange={(e) => setUsername(e.target.value)} />
+                <input type="password" className="form-control" placeholder="Account Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <button type="submit" className="btn" style={{ marginTop: '8px' }}>
+                  <UserPlus size={16} /> Register & Join Team
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setUsername('Dhruv'); setIsLogged(true); }}
+                  style={{
+                    background: 'rgba(0, 255, 102, 0.1)',
+                    border: '1px solid var(--theme-primary)',
+                    color: 'var(--theme-primary)',
+                    padding: '10px',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ⚡ Instant Guest Preview
+                </button>
+              </form>
             </div>
           </div>
         ) : (

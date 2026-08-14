@@ -81,6 +81,7 @@ export function registerSocketGateway(io: Server) {
 
   io.on('connection', async (socket: Socket) => {
     const { userId, username, teamId, role } = socket.data;
+    console.log(`[Socket Connection] Debug Details: userId=${userId}, username=${username}, teamId=${teamId}, role=${role}`);
 
     if (role === 'GUEST') {
       console.log('Guest connected for public live standings tracker');

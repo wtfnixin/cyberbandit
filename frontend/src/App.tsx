@@ -118,6 +118,19 @@ const THEMES = [
   { name: 'Dark Slate', color: '#38bdf8', termBg: '#090c14', termFg: '#38bdf8' }
 ];
 
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
 export default function App() {
   // Auth Session States
   const [token, setToken] = useState<string | null>(localStorage.getItem('jwt_token'));
@@ -584,10 +597,15 @@ export default function App() {
     if (token) {
       localStorage.setItem('jwt_token', token);
       setIsLogged(true);
+      const decoded = parseJwt(token);
+      if (decoded && decoded.username) {
+        setUsername(decoded.username);
+      }
       initializeSocket(token);
     } else {
       localStorage.removeItem('jwt_token');
       setIsLogged(false);
+      setUsername('');
     }
   }, [token]);
 
@@ -953,6 +971,9 @@ export default function App() {
       if (data.error) {
         setAuthError(data.error);
       } else {
+        if (data.user && data.user.username) {
+          setUsername(data.user.username);
+        }
         setToken(data.token);
       }
     } catch (err: any) {

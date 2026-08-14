@@ -109,6 +109,7 @@ export function registerSocketGateway(io: Server) {
 
     if (role === 'STUDENT') {
       onlineUsers.add(userId);
+      console.log(`[Socket] Added STUDENT user ${userId} to onlineUsers. Active count: ${onlineUsers.size}`);
       io.to('admin:room').emit('admin:teams:refresh');
     }
 
@@ -342,6 +343,7 @@ export function registerSocketGateway(io: Server) {
     socket.on('disconnect', () => {
       if (role === 'STUDENT') {
         onlineUsers.delete(userId);
+        console.log(`[Socket] Removed STUDENT user ${userId} from onlineUsers. Active count: ${onlineUsers.size}`);
         io.to('admin:room').emit('admin:teams:refresh');
       }
       console.log(`User ${username} (${userId}) disconnected`);

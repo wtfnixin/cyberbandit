@@ -30,6 +30,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   // 1. Get all teams
   fastify.get('/api/admin/teams', async (request, reply) => {
     try {
+      console.log(`[Admin API] Active online users count: ${onlineUsers.size}, set:`, Array.from(onlineUsers));
       const teams = await prisma.team.findMany({
         include: {
           users: true,

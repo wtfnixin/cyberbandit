@@ -19,6 +19,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
 
 export const onlineUsers = new Set<string>();
 
+export function getClientHintText(hintText: string | null) {
+  return hintText ?? '';
+}
+
 interface DecodedToken {
   userId: string;
   username: string;
@@ -152,7 +156,7 @@ export function registerSocketGateway(io: Server) {
           taskId,
           taskName: task.name,
           cwd: task.startDirectory,
-          hint: task.hintText
+          hint: getClientHintText(task.hintText)
         });
       } catch (err: any) {
         socket.emit('error', { message: 'Failed to mount task: ' + err.message });

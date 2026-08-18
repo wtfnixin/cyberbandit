@@ -2,9 +2,6 @@ import { FastifyInstance } from 'fastify';
 import { prisma } from '../services/db';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
 
@@ -214,63 +211,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     });
   });
 
-  // 5. Instant Guest Preview (no team code / email required)
-  // Creates/reuses a single shared guest team and returns a valid JWT so the
-  // client can open a full workspace without pre-registration.
-  fastify.post('/api/auth/guest-preview', async (request, reply) => {
-    const GUEST_INVITE = 'GUEST1';
-    const GUEST_TEAM = 'Guest Preview Team';
-
-    try {
-      let team = await prisma.team.findUnique({
-        where: { inviteCode: GUEST_INVITE }
-      });
-
-      if (!team) {
-        const lvl = await prisma.level.findFirst({ orderBy: { id: 'asc' } });
-        team = await prisma.team.create({
-          data: {
-            name: GUEST_TEAM,
-            inviteCode: GUEST_INVITE,
-            score: 0,
-            currentLevelId: lvl?.id ?? 1
-          }
-        });
-      }
-
-      let user = await prisma.user.findFirst({
-        where: { teamId: team.id, role: 'STUDENT' }
-      });
-
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            username: `guest-${team.id.substring(0, 6).toLowerCase()}`,
-            email: `guest@preview.com`,
-            role: 'STUDENT',
-            teamId: team.id
-          }
-        });
-      }
-
-      const token = jwt.sign(
-        { userId: user.id, username: user.username, role: user.role, teamId: team.id },
-        JWT_SECRET,
-        { expiresIn: '6h' }
-      );
-
-      return reply.code(200).send({
-        message: 'Guest preview access granted',
-        token,
-        user: { id: user.id, username: user.username, role: user.role },
-        team: { id: team.id, name: team.name }
-      });
-    } catch (err: any) {
-      return reply.code(500).send({ error: 'Guest preview failed', details: err.message });
-    }
-  });
-
-  // 6. Safe Level data lookup for students
+  // 5. Safe Level data lookup for students
   fastify.get('/api/levels/:levelId', async (request, reply) => {
     const authHeader = request.headers.authorization;
     if (!authHeader) {

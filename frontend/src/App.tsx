@@ -1537,34 +1537,6 @@ export default function App() {
                 <button type="submit" className="btn" style={{ marginTop: '8px' }}>
                   <UserPlus size={16} /> Authenticate & Access Workspace
                 </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/auth/guest-preview', { method: 'POST' });
-                      const data = await res.json();
-                      if (data.token) {
-                        setToken(data.token);
-                      } else {
-                        setAuthError(data.error || 'Guest preview failed');
-                      }
-                    } catch (e: any) {
-                      setAuthError('Guest preview failed: ' + e.message);
-                    }
-                  }}
-                  style={{
-                    background: 'rgba(0, 255, 102, 0.1)',
-                    border: '1px solid var(--theme-primary)',
-                    color: 'var(--theme-primary)',
-                    padding: '10px',
-                    borderRadius: '6px',
-                    fontSize: '0.8rem',
-                    fontWeight: 'bold',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ⚡ Instant Guest Preview
-                </button>
               </form>
             </div>
           </div>

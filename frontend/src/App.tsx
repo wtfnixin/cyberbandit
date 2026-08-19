@@ -1178,6 +1178,8 @@ export default function App() {
   };
 
   const mountTask = (taskId: string) => {
+    setActiveTaskId(taskId);
+    playClickSound();
     if (socketRef.current) {
       socketRef.current.emit('task:mount', { taskId });
     }

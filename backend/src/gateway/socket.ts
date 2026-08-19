@@ -207,6 +207,8 @@ export function registerSocketGateway(io: Server) {
       try {
         // Fetch active workspace state
         let vfs = await getUserVFS(userId);
+        let cwd = await getUserCWD(userId);
+
         if (!vfs) {
           const activeTaskObj = await prisma.task.findUnique({ where: { id: activeTaskId } });
           if (activeTaskObj) {
@@ -223,7 +225,6 @@ export function registerSocketGateway(io: Server) {
             stderr: ['System: VFS session expired. Please re-mount the task.'],
             cwd: '/'
           });
-        }
         }
 
         // Save entry history

@@ -14,7 +14,6 @@ import {
   Activity,
   Shield,
   Trash2,
-  ArrowLeft,
   BookOpen,
   Volume2,
   VolumeX,
@@ -23,10 +22,15 @@ import {
   Check,
   HelpCircle,
   X,
-  Lock
+  Lock,
+  Folder,
+  FileText,
+  Search,
+  LockKeyhole
 } from 'lucide-react';
 import 'xterm/css/xterm.css';
 import { useCopyGuard, writeGuardedClipboardText } from './utils/copyGuard';
+import { LeaderboardView } from './components/LeaderboardView';
 // @ts-ignore
 import logoImg from './logo.png';
 
@@ -69,48 +73,48 @@ interface CheatSheetItem {
 
 interface CheatSheetCategory {
   title: string;
-  icon: string;
+  icon: React.ElementType;
   items: CheatSheetItem[];
 }
 
 const CHEAT_SHEET_CATEGORIES: CheatSheetCategory[] = [
   {
     title: 'File System & Navigation',
-    icon: '📁',
+    icon: Folder,
     items: [
       { cmd: 'pwd', desc: 'Print current working directory path' },
       { cmd: 'ls -la', desc: 'List all files including hidden dotfiles with details' },
-      { cmd: 'cd folder', desc: "Change directory to 'folder'" },
+      { cmd: 'cd <folder>', desc: "Change directory to a specific folder" },
       { cmd: 'cd ..', desc: 'Move up one parent directory' }
     ]
   },
   {
     title: 'Reading & Searching Files',
-    icon: '📄',
+    icon: FileText,
     items: [
-      { cmd: 'cat readme.txt', desc: 'Print text file contents to screen' },
+      { cmd: 'cat <filename>', desc: 'Print text file contents to screen' },
       { cmd: 'cat ./-', desc: "Read a file named '-' using relative pathing" },
-      { cmd: 'cat "file with spaces"', desc: 'Read file names containing spaces using quotes' },
-      { cmd: 'grep \'keyword\' data.txt', desc: "Search and filter lines containing 'keyword'" }
+      { cmd: 'cat "file with spaces"', desc: 'Read file names containing spaces using surrounding quotes' },
+      { cmd: 'grep "<keyword>" <file>', desc: "Search and filter lines containing a keyword" }
     ]
   },
   {
     title: 'Finding & Type Inspection',
-    icon: '🔍',
+    icon: Search,
     items: [
-      { cmd: 'file ./inhere/*', desc: 'Determine file type (ASCII text, binary, PNG)' },
-      { cmd: 'find inhere -type f -size 1033c', desc: 'Find files under 1033 bytes in size' },
-      { cmd: 'sort data.txt | uniq -u', desc: 'Sort text and print ONLY non-duplicate lines' }
+      { cmd: 'file <filename>', desc: 'Determine file type (ASCII text, binary, PNG)' },
+      { cmd: 'find . -type f -size <bytes>c', desc: 'Find files based on exact byte size' },
+      { cmd: 'sort <file> | uniq -u', desc: 'Sort text and pipe it to print ONLY non-duplicate lines' }
     ]
   },
   {
     title: 'Encodings, Strings & Network',
-    icon: '🔐',
+    icon: LockKeyhole,
     items: [
-      { cmd: 'base64 -d encoded.txt', desc: 'Decode Base64 encoded string' },
-      { cmd: 'tr \'A-Za-z\' \'N-ZA-Mn-za-m\'', desc: 'Decipher ROT13 text substitution' },
-      { cmd: 'strings data.dat | grep \'=\'', desc: 'Extract printable text from binary executable' },
-      { cmd: 'nc localhost 1337', desc: 'Connect to local netcat port listener' }
+      { cmd: 'base64 -d <file>', desc: 'Decode a Base64 encoded string' },
+      { cmd: 'tr \'A-Za-z\' \'N-ZA-Mn-za-m\'', desc: 'Decipher a ROT13 text substitution' },
+      { cmd: 'strings <file> | grep "="', desc: 'Extract printable text from a binary executable' },
+      { cmd: 'nc localhost <port>', desc: 'Connect to local netcat port listener' }
     ]
   }
 ];
@@ -225,6 +229,8 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [progress, setProgress] = useState<Record<string, string>>({});
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const activeTaskIdRef = useRef<string | null>(null);
+  activeTaskIdRef.current = activeTaskId;
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
   const [studentLevels, setStudentLevels] = useState<any[]>([]);
   // Derive the currently mounted task once per render to avoid repeated lookups
@@ -248,9 +254,9 @@ export default function App() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [passwordSubmissionInput, setPasswordSubmissionInput] = useState<string>('');
-  const [revealedHintsCount, setRevealedHintsCount] = useState<number>(0);
 
   // Admin Session States
+  const [showStudentLeaderboard, setShowStudentLeaderboard] = useState<boolean>(false);
   const [isAdminMode] = useState<boolean>(window.location.pathname === '/admin');
   const [isLeaderboardPage] = useState<boolean>(window.location.pathname === '/leaderboard');
   const [adminToken, setAdminToken] = useState<string | null>(localStorage.getItem('admin_token'));
@@ -479,6 +485,28 @@ export default function App() {
       setLeaderboard(data);
     });
   };
+
+  const fetchLeaderboard = async () => {
+    try {
+      const res = await fetch('/api/leaderboard');
+      const data = await res.json();
+      if (!data.error && Array.isArray(data)) {
+        setLeaderboard(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch leaderboard:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
+
+  useEffect(() => {
+    if (showStudentLeaderboard || showAdminLeaderboard || isLeaderboardPage) {
+      fetchLeaderboard();
+    }
+  }, [showStudentLeaderboard, showAdminLeaderboard, isLeaderboardPage]);
 
   useEffect(() => {
     if (isLeaderboardPage) {
@@ -807,18 +835,24 @@ export default function App() {
 
   // Synchronize base selectedLevelId with socket's active level
   useEffect(() => {
-    if (level && selectedLevelId === null) {
-      setSelectedLevelId(level.id);
+    if (level) {
+      if (selectedLevelId === null) {
+        setSelectedLevelId(level.id);
+      }
+      if (level.tasks && level.tasks.length > 0) {
+        setTasks(level.tasks);
+      }
     }
   }, [level, selectedLevelId]);
 
   // Fetch older/non-active level tasks when selectedLevelId switches
   useEffect(() => {
-    if (selectedLevelId === null || !token) return;
-    if (level && selectedLevelId === level.id) {
+    if (!token) return;
+    const targetLevelId = selectedLevelId || level?.id || 1;
+    if (level && targetLevelId === level.id && level.tasks && level.tasks.length > 0) {
       setTasks(level.tasks);
     } else {
-      fetch(`/api/levels/${selectedLevelId}`, {
+      fetch(`/api/levels/${targetLevelId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
         .then(res => res.json())
@@ -925,7 +959,7 @@ export default function App() {
               commandBufferRef.current = '';
               setActiveTaskId(null);
             } else if (cmd.length > 0) {
-              socketRef.current.emit('command:execute', { commandLine: cmd });
+              socketRef.current.emit('command:execute', { commandLine: cmd, taskId: activeTaskIdRef.current });
               commandBufferRef.current = '';
             } else {
               writePrompt();
@@ -959,7 +993,7 @@ export default function App() {
             commandBufferRef.current = '';
             writePrompt();
           } else {
-            socketRef.current.emit('command:execute', { commandLine: cmd });
+            socketRef.current.emit('command:execute', { commandLine: cmd, taskId: activeTaskIdRef.current });
             commandBufferRef.current = '';
           }
         } else {
@@ -989,7 +1023,7 @@ export default function App() {
               const cmd = commandBufferRef.current.trim();
               term.write('\r\n');
               if (cmd.length > 0) {
-                socketRef.current?.emit('command:execute', { commandLine: cmd });
+                socketRef.current?.emit('command:execute', { commandLine: cmd, taskId: activeTaskIdRef.current });
                 commandBufferRef.current = '';
               } else {
                 writePrompt();
@@ -1227,6 +1261,8 @@ export default function App() {
   };
 
   const mountTask = (taskId: string) => {
+    setActiveTaskId(taskId);
+    playClickSound();
     if (socketRef.current) {
       socketRef.current.emit('task:mount', { taskId });
     }
@@ -1236,7 +1272,7 @@ export default function App() {
     e.preventDefault();
     if (!passwordSubmissionInput.trim()) return;
     if (socketRef.current) {
-      socketRef.current.emit('command:execute', { commandLine: `submit ${passwordSubmissionInput.trim()}` });
+      socketRef.current.emit('command:execute', { commandLine: `submit ${passwordSubmissionInput.trim()}`, taskId: activeTaskIdRef.current });
       setPasswordSubmissionInput('');
       playClickSound();
     }
@@ -1257,72 +1293,17 @@ export default function App() {
   };
 
   if (isLeaderboardPage) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--theme-bg)', color: 'var(--theme-text)', padding: '40px', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--theme-border)', paddingBottom: '20px', marginBottom: '40px', maxWidth: '900px', width: '100%', margin: '0 auto 40px auto' }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--amber)', letterSpacing: '2px', fontWeight: 'bold' }}>// LIVE_STANDINGS_LOGISTICS</div>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--theme-primary)', marginTop: '4px', letterSpacing: '-0.5px' }}>TOURNAMENT LEADERBOARD</h1>
-          </div>
-          <div style={{ display: 'flex', gap: '24px', fontSize: '0.8rem' }}>
-            <div><span style={{ color: '#475569' }}>STREAM: </span><span style={{ color: 'var(--theme-primary)', fontWeight: 'bold' }}>ONLINE</span></div>
-            <div><span style={{ color: '#475569' }}>SYNC_TYPE: </span><span style={{ color: 'var(--cyan)' }}>REALTIME_PUSH</span></div>
-          </div>
-        </div>
-
-        <div style={{ margin: '0 auto', width: '100%', maxWidth: '900px', border: '1px solid var(--theme-border)', background: 'var(--theme-card-bg)', borderRadius: '6px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 160px', borderBottom: '1px solid var(--theme-border)', background: 'rgba(0, 255, 102, 0.05)', padding: '16px 32px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-            <span>Rank</span><span>Team Identifier</span><span style={{ textAlign: 'right' }}>Score</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {leaderboard.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '64px', color: '#475569', fontSize: '0.9rem' }}>-- NO ACTIVE DATASTREAM DETECTED --</div>
-            ) : (
-              leaderboard.map((entry, index) => (
-                <div key={entry.id || entry.name} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 160px', borderBottom: '1px solid var(--theme-border)', padding: '20px 32px', fontSize: '1.05rem', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', color: index === 0 ? 'var(--amber)' : 'var(--theme-primary)' }}>#{String(index + 1).padStart(2, '0')}</span>
-                  <span>{entry.name}</span>
-                  <span style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--theme-primary)' }}>{entry.score} PTS</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    );
+    return <LeaderboardView leaderboard={leaderboard} />;
   }
 
   if (isAdminMode) {
     if (showAdminLeaderboard) {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--theme-bg)', color: 'var(--theme-text)', padding: '40px', overflowY: 'auto' }}>
-          <button 
-            onClick={() => setShowAdminLeaderboard(false)}
-            style={{ position: 'absolute', top: '40px', left: '40px', width: '42px', height: '42px', borderRadius: '6px', background: 'rgba(15, 23, 42, 0.3)', border: '1px solid var(--theme-border)', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 100 }}
-          >
-            <ArrowLeft size={18} style={{ color: '#cbd5e1' }} />
-          </button>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--theme-border)', paddingBottom: '20px', marginBottom: '40px', maxWidth: '900px', width: '100%', margin: '0 auto 40px auto' }}>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--amber)', letterSpacing: '2px', fontWeight: 'bold' }}>// LIVE_STANDINGS_LOGISTICS</div>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--theme-text)', marginTop: '4px' }}>LIVE LEADERBOARD STANDINGS</h1>
-            </div>
-          </div>
-          <div style={{ margin: '0 auto', width: '100%', maxWidth: '900px', border: '1px solid var(--theme-border)', background: 'var(--theme-card-bg)', borderRadius: '6px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 160px', borderBottom: '1px solid var(--theme-border)', padding: '16px 32px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-              <span>Rank</span><span>Team Identifier</span><span style={{ textAlign: 'right' }}>Score</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {leaderboard.map((entry, index) => (
-                <div key={entry.id || entry.name} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 160px', borderBottom: '1px solid var(--theme-border)', padding: '20px 32px', fontSize: '1.05rem', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', color: index === 0 ? 'var(--amber)' : 'var(--theme-primary)' }}>#{String(index + 1).padStart(2, '0')}</span>
-                  <span>{entry.name}</span>
-                  <span style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--theme-primary)' }}>{entry.score} PTS</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <LeaderboardView
+          leaderboard={leaderboard}
+          onBack={() => setShowAdminLeaderboard(false)}
+          title="LIVE LEADERBOARD STANDINGS"
+        />
       );
     }
 
@@ -1545,6 +1526,15 @@ export default function App() {
     );
   }
 
+  if (showStudentLeaderboard) {
+    return (
+      <LeaderboardView
+        leaderboard={leaderboard}
+        onBack={() => setShowStudentLeaderboard(false)}
+      />
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--theme-bg)', color: 'var(--theme-text)' }}>
       {/* Navigation Header matching Screenshot 1 & 3 */}
@@ -1629,6 +1619,8 @@ export default function App() {
                   <LogOut size={14} />
                 </button>
               </div>
+
+
 
               {/* Cheat Sheet Button */}
               <button
@@ -1934,11 +1926,12 @@ export default function App() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                    {tasks.map(task => {
+                    {((tasks && tasks.length > 0) ? tasks : (level?.tasks || [])).map(task => {
                       const isCompleted = (selectedLevelId !== null && selectedLevelId < (team?.currentLevelId || 1)) || progress[task.taskRole] === 'COMPLETED';
                       return (
                         <div
                           key={task.id}
+                          onClick={() => mountTask(task.id)}
                           className="glass-container"
                           style={{
                             padding: '24px',
@@ -1948,7 +1941,8 @@ export default function App() {
                             background: isCompleted ? 'rgba(0, 255, 102, 0.04)' : 'var(--theme-card-bg)',
                             border: '1px solid ' + (isCompleted ? 'var(--theme-primary)' : 'var(--theme-border)'),
                             borderRadius: '8px',
-                            position: 'relative'
+                            position: 'relative',
+                            cursor: 'pointer'
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2053,16 +2047,6 @@ export default function App() {
                             </h2>
                           </div>
                         </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0, 0, 0, 0.6)', border: '1px solid var(--theme-border)', padding: '6px 12px', borderRadius: '6px' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--theme-text-muted)' }}>Try command:</span>
-                          <code style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--theme-primary)' }}>
-                            cat flag.txt
-                          </code>
-                          <button onClick={() => void handleGuardedQuestionCommandCopy('cat flag.txt')} style={{ background: 'transparent', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                            <Copy size={14} />
-                          </button>
-                        </div>
                       </div>
 
                       <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid var(--theme-border)', borderRadius: '6px', padding: '10px 14px', position: 'relative' }}>
@@ -2074,32 +2058,6 @@ export default function App() {
                             ? activeTask.hintText
                             : 'Select a task mission to mount its virtual filesystem into your terminal.'}
                         </div>
-                      </div>
-
-                      <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid var(--theme-border)', borderRadius: '6px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
-                        <div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--theme-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
-                            💡 GUIDED HINTS ({revealedHintsCount}/3)
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--theme-text-muted)' }}>
-                            {revealedHintsCount > 0 ? (
-                              <div style={{ color: 'var(--amber)', fontWeight: 'bold' }}>
-                                Hint #{revealedHintsCount}: {activeTask?.hintText
-                                  ? activeTask.hintText
-                                  : 'Inspect files with ls -la and cat.'}
-                              </div>
-                            ) : (
-                              "Stuck? Click 'Reveal Hint' for step-by-step assistance."
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => { setRevealedHintsCount(prev => Math.min(3, prev + 1)); playClickSound(); }}
-                          disabled={revealedHintsCount >= 3}
-                          style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: 'none', color: '#000000', padding: '6px 14px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                          Reveal Hint #{revealedHintsCount + 1}
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -2164,22 +2122,27 @@ export default function App() {
               <button onClick={() => setShowCheatSheet(false)} style={{ background: 'transparent', border: 'none', color: 'var(--theme-text-muted)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {CHEAT_SHEET_CATEGORIES.map(cat => (
-                <div key={cat.title}>
-                  <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--theme-primary)', marginBottom: '10px' }}>{cat.icon} {cat.title}</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {cat.items.map(item => (
-                      <div key={item.cmd} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid var(--theme-border)', padding: '10px 12px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--theme-primary)' }}>{item.cmd}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--theme-text-muted)' }}>{item.desc}</div>
+              {CHEAT_SHEET_CATEGORIES.map(cat => {
+                const IconComp = cat.icon;
+                return (
+                  <div key={cat.title}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--theme-primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <IconComp size={16} /> <span>{cat.title}</span>
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      {cat.items.map(item => (
+                        <div key={item.cmd} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid var(--theme-border)', padding: '10px 12px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--theme-primary)' }}>{item.cmd}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--theme-text-muted)' }}>{item.desc}</div>
+                          </div>
+                          <button onClick={() => handleCopyCommand(item.cmd)} style={{ background: 'transparent', border: 'none', color: 'var(--theme-text-muted)', cursor: 'pointer' }}><Copy size={14} /></button>
                         </div>
-                        <button onClick={() => handleCopyCommand(item.cmd)} style={{ background: 'transparent', border: 'none', color: 'var(--theme-text-muted)', cursor: 'pointer' }}><Copy size={14} /></button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

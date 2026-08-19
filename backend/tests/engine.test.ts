@@ -30,7 +30,7 @@ const getTestVfs = (): DirectoryNode => ({
               permissions: '644',
               owner: 'student',
               group: 'student',
-              content: 'flag{welcome_to_overthewire_challenge}'
+              content: 'flag{welcome_to_cyberbandit_challenge}'
             },
             notes: {
               name: 'notes',
@@ -81,7 +81,7 @@ describe('Virtual Filesystem Engine tests', () => {
   it('should cat a file and print contents', () => {
     const vfs = getTestVfs();
     const res = executeCommandLine('cat flag.txt', '/home/student', vfs);
-    expect(res.stdout).toEqual(['flag{welcome_to_overthewire_challenge}']);
+    expect(res.stdout).toEqual(['flag{welcome_to_cyberbandit_challenge}']);
   });
 
   it('should successfully filter inputs with grep', () => {

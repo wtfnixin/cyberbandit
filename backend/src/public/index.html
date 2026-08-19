@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OverTheWire - Team Shell Challenge</title>
+  <title>Cyberbandit - Team Shell Challenge</title>
   <meta name="description" content="Collaborative Linux terminal gamified learning environment for teams.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -428,7 +428,7 @@
 
   <header>
     <div class="logo-container">
-      <h1>OverTheWire Terminal Challenge<span>Co-op Beta</span></h1>
+      <h1>Cyberbandit Terminal Challenge<span>Co-op Beta</span></h1>
     </div>
     <div id="teamInfoBadge" class="team-badge" style="display: none;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--cyan);"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
@@ -505,12 +505,12 @@
             <div class="dot yellow"></div>
             <div class="dot green"></div>
           </div>
-          <div class="terminal-title">student@overthewire:~</div>
+          <div class="terminal-title">student@cyberbandit:~</div>
           <div></div> <!-- Spacer -->
         </div>
         
         <div class="terminal-body" id="terminalLog" onclick="focusConsole()">
-          <div class="stdout-line">Welcome to the OverTheWire Cooperative Shell.</div>
+          <div class="stdout-line">Welcome to the Cyberbandit Cooperative Shell.</div>
           <div class="stdout-line">Interact with your files and paths in this session. Logs and progression will be synced in real-time.</div>
           <div class="stdout-line">Type "help" to view basic guidelines, or click a task on the left panel to get started!</div>
           <br>
@@ -748,7 +748,7 @@
       promptRow.id = 'promptRow';
       
       promptRow.innerHTML = `
-        <span class="prompt-label">student@overthewire:${activeCWD}$</span>
+        <span class="prompt-label">student@cyberbandit:${activeCWD}$</span>
         <input type="text" id="shellInput" class="prompt-input" autocomplete="off" autofocus>
       `;
 
@@ -768,7 +768,7 @@
         if (commandLine === '') return;
 
         // Print input path back down
-        printLine(`student@overthewire:${activeCWD}$ ${commandLine}`, 'stdout-line');
+        printLine(`student@cyberbandit:${activeCWD}$ ${commandLine}`, 'stdout-line');
         
         commandHistory.push(commandLine);
         historyIndex = commandHistory.length;

@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import 'xterm/css/xterm.css';
 import { useCopyGuard, writeGuardedClipboardText } from './utils/copyGuard';
+// @ts-ignore
+import logoImg from './logo.png';
 
 // TypeScript Interfaces for States
 interface Task {
@@ -306,7 +308,7 @@ export default function App() {
     if (xtermRef.current) {
       commandBufferRef.current = command;
       xtermRef.current.write('\r\x1b[K');
-      const prompt = `student@overthewire:${cwdRef.current || '/home/student'}$ `;
+      const prompt = `student@cyberbandit:${cwdRef.current || '/home/student'}$ `;
       xtermRef.current.write(prompt + command);
     }
   };
@@ -317,7 +319,7 @@ export default function App() {
     if (xtermRef.current) {
       commandBufferRef.current = command;
       xtermRef.current.write('\r\x1b[K');
-      const prompt = `student@overthewire:${cwdRef.current || '/home/student'}$ `;
+      const prompt = `student@cyberbandit:${cwdRef.current || '/home/student'}$ `;
       xtermRef.current.write(prompt + command);
     }
   };
@@ -723,7 +725,7 @@ export default function App() {
     });
 
     // Print welcome banner
-    term.writeln('\x1b[1;36mOverTheWire Collaborative Shell Client v1.0.0\x1b[0m');
+    term.writeln('\x1b[1;36mCyberBandit Collaborative Shell Client v1.0.0\x1b[0m');
     term.writeln('Active WebSocket pipeline initialized. Status: \x1b[1;32mCONNECTED\x1b[0m');
     term.writeln('Type \x1b[1;35mhelp\x1b[0m to view instructions, or select a task in the panel to begin.');
     term.writeln('');
@@ -874,7 +876,7 @@ export default function App() {
       if (xtermRef.current) {
         xtermRef.current.writeln(`\r\n\x1b[1;31m[⚠️ SYSTEM ANNOUNCEMENT] ${data.message}\x1b[0m`);
         xtermRef.current.write('\r');
-        const prompt = `student@overthewire:${cwdRef.current || '/home/student'}$ `;
+        const prompt = `student@cyberbandit:${cwdRef.current || '/home/student'}$ `;
         xtermRef.current.write(prompt + commandBufferRef.current);
       }
       addLog(`⚠️ SYSTEM: ${data.message}`, 'system');
@@ -962,7 +964,7 @@ export default function App() {
 
   const writePrompt = () => {
     if (xtermRef.current) {
-      xtermRef.current.write(`\r\x1b[1;32mstudent@overthewire:${cwdRef.current}$ \x1b[0m`);
+      xtermRef.current.write(`\r\x1b[1;32mstudent@cyberbandit:${cwdRef.current}$ \x1b[0m`);
     }
   };
 
@@ -1106,7 +1108,7 @@ export default function App() {
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', background: 'rgba(10, 15, 26, 0.7)', borderBottom: '1px solid var(--theme-border)', zIndex: 50 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Shield style={{ color: 'var(--amber)' }} size={24} />
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--rose)', letterSpacing: '-0.5px' }}>OverTheWire SUPER ADMIN PANEL</h1>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--rose)', letterSpacing: '-0.5px' }}>CyberBandit SUPER ADMIN PANEL</h1>
             {isAdminLogged && (
               <div style={{ display: 'flex', gap: '8px', marginLeft: '32px' }}>
                 <button type="button" onClick={() => setAdminTab('dashboard')} style={{ background: adminTab === 'dashboard' ? 'rgba(56, 189, 248, 0.1)' : 'transparent', border: '1px solid ' + (adminTab === 'dashboard' ? 'rgba(56, 189, 248, 0.3)' : 'transparent'), color: adminTab === 'dashboard' ? 'var(--cyan)' : 'var(--text-muted)', padding: '6px 14px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>Dashboard</button>
@@ -1322,21 +1324,9 @@ export default function App() {
       }}>
         {/* Left Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            background: 'rgba(0, 255, 102, 0.15)',
-            border: '1px solid var(--theme-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Shield style={{ color: 'var(--theme-primary)' }} size={18} />
-          </div>
           <div>
             <h1 style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--theme-primary)', letterSpacing: '0.5px' }}>
-              OVERTHEWIRE CYBERBANDIT
+              CyberBandit
             </h1>
             <div style={{ fontSize: '0.7rem', color: 'var(--theme-text-muted)', letterSpacing: '0.5px' }}>
               Fresher Linux CTF Edition • {level?.title || 'Interactive Shell'}
@@ -1509,6 +1499,7 @@ export default function App() {
               </div>
             </>
           )}
+          <img src={logoImg} alt="CyberBandit Logo" style={{ height: '64px', objectFit: 'contain', marginLeft: '10px' }} />
         </div>
       </header>
 
@@ -1846,7 +1837,7 @@ export default function App() {
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
                       </div>
                       <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--theme-text-muted)' }}>
-                        student@overthewire: {cwdRef.current} (Task: {activeTask?.taskRole})
+                        student@cyberbandit: {cwdRef.current} (Task: {activeTask?.taskRole})
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button

@@ -6,6 +6,15 @@ import { seedSystemLevels } from '../services/seedSyllabus';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
 
+// Security: Strip HTML tags and dangerous characters from user inputs to prevent XSS
+function sanitizeInput(input: string): string {
+  return input
+    .replace(/<[^>]*>/g, '')        // strip all HTML tags
+    .replace(/[<>"'`]/g, '')        // strip remaining angle brackets and quote chars
+    .trim()
+    .slice(0, 128);                 // hard cap at 128 characters
+}
+
 function generateInviteCode(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -67,11 +76,16 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: 'Team name is required' });
     }
 
+    const sanitizedName = sanitizeInput(name);
+    if (!sanitizedName) {
+      return reply.code(400).send({ error: 'Team name contains invalid characters' });
+    }
+
     try {
       const inviteCode = generateInviteCode();
       const team = await prisma.team.create({
         data: {
-          name: name.trim(),
+          name: sanitizedName,
           inviteCode,
           score: 0,
           currentLevelId: 1,
@@ -79,7 +93,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
             createMany: {
               data: members.map(m => ({
                 email: m.email.trim().toLowerCase(),
-                name: m.name ? m.name.trim() : null
+                name: m.name ? sanitizeInput(m.name) : null
               }))
             }
           } : undefined

@@ -1403,112 +1403,112 @@ export default function App() {
                   <LogOut size={14} />
                 </button>
               </div>
+
+              {/* Cheat Sheet Button */}
+              <button
+                onClick={() => { setShowCheatSheet(true); playClickSound(); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  border: '1px solid var(--theme-border)',
+                  color: 'var(--theme-text)',
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                <BookOpen size={14} style={{ color: 'var(--theme-primary)' }} />
+                <span>Cheat Sheet</span>
+              </button>
+
+              {/* Sound Toggle */}
+              <button
+                onClick={() => { setIsMuted(!isMuted); playClickSound(); }}
+                style={{
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  border: '1px solid var(--theme-border)',
+                  color: 'var(--theme-primary)',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={isMuted ? "Unmute Audio" : "Mute Audio"}
+              >
+                {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              </button>
+
+              {/* Theme Dropdown */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => { setShowThemeDropdown(!showThemeDropdown); playClickSound(); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    border: '1px solid var(--theme-border)',
+                    color: 'var(--theme-text)',
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Monitor size={14} style={{ color: 'var(--theme-primary)' }} />
+                  <span>{currentTheme}</span>
+                  <ChevronDown size={14} />
+                </button>
+
+                {showThemeDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '6px',
+                    width: '160px',
+                    background: '#111827',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.7)',
+                    overflow: 'hidden',
+                    zIndex: 100
+                  }}>
+                    {THEMES.map(t => (
+                      <button
+                        key={t.name}
+                        onClick={() => handleSelectTheme(t.name)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          width: '100%',
+                          padding: '8px 12px',
+                          background: currentTheme === t.name ? '#2563eb' : 'transparent',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          textAlign: 'left',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {currentTheme === t.name ? <Check size={14} /> : <span style={{ width: '14px' }} />}
+                        <span>{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </>
           )}
-
-          {/* Cheat Sheet Button */}
-          <button
-            onClick={() => { setShowCheatSheet(true); playClickSound(); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--theme-border)',
-              color: 'var(--theme-text)',
-              padding: '5px 12px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            <BookOpen size={14} style={{ color: 'var(--theme-primary)' }} />
-            <span>Cheat Sheet</span>
-          </button>
-
-          {/* Sound Toggle */}
-          <button
-            onClick={() => { setIsMuted(!isMuted); playClickSound(); }}
-            style={{
-              background: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--theme-border)',
-              color: 'var(--theme-primary)',
-              padding: '6px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            title={isMuted ? "Unmute Audio" : "Mute Audio"}
-          >
-            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
-
-          {/* Theme Dropdown */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => { setShowThemeDropdown(!showThemeDropdown); playClickSound(); }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid var(--theme-border)',
-                color: 'var(--theme-text)',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              <Monitor size={14} style={{ color: 'var(--theme-primary)' }} />
-              <span>{currentTheme}</span>
-              <ChevronDown size={14} />
-            </button>
-
-            {showThemeDropdown && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '6px',
-                width: '160px',
-                background: '#111827',
-                border: '1px solid #374151',
-                borderRadius: '8px',
-                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.7)',
-                overflow: 'hidden',
-                zIndex: 100
-              }}>
-                {THEMES.map(t => (
-                  <button
-                    key={t.name}
-                    onClick={() => handleSelectTheme(t.name)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      width: '100%',
-                      padding: '8px 12px',
-                      background: currentTheme === t.name ? '#2563eb' : 'transparent',
-                      border: 'none',
-                      color: '#ffffff',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      textAlign: 'left',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {currentTheme === t.name ? <Check size={14} /> : <span style={{ width: '14px' }} />}
-                    <span>{t.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </header>
 

@@ -10,7 +10,8 @@ import {
   setTeamProgress,
   initializeUserSession,
   pushHistory,
-  updateLeaderboardScore
+  updateLeaderboardScore,
+  redis
 } from '../services/redis';
 import { executeCommandLine } from '../engine/pipeline';
 import { DirectoryNode } from '../engine/types';
@@ -18,6 +19,9 @@ import { DirectoryNode } from '../engine/types';
 const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
 
 export const onlineUsers = new Set<string>();
+const lastCommandTimes = new Map<string, number>();
+// Maps userId -> currently active socketId (enforces single-session policy)
+const activeUserSockets = new Map<string, string>();
 
 export function getClientHintText(hintText: string | null) {
   return hintText ?? '';
@@ -113,6 +117,19 @@ export function registerSocketGateway(io: Server) {
     console.log(`User ${username} (${userId}) connected to room ${teamRoom}`);
 
     if (role === 'STUDENT') {
+      // Single-session enforcement: kick out any existing tab/window for this user
+      const existingSocketId = activeUserSockets.get(userId);
+      if (existingSocketId && existingSocketId !== socket.id) {
+        const existingSocket = io.sockets.sockets.get(existingSocketId);
+        if (existingSocket) {
+          existingSocket.emit('session:evicted', {
+            message: 'Your session was opened in another window or tab. Only one active session is allowed per player.'
+          });
+          existingSocket.disconnect(true);
+          console.log(`[Security] Evicted duplicate session for user ${userId} (old socket: ${existingSocketId})`);
+        }
+      }
+      activeUserSockets.set(userId, socket.id);
       onlineUsers.add(userId);
       console.log(`[Socket] Added STUDENT user ${userId} to onlineUsers. Active count: ${onlineUsers.size}`);
       io.to('admin:room').emit('admin:teams:refresh');
@@ -177,6 +194,26 @@ export function registerSocketGateway(io: Server) {
       const { commandLine } = data;
       const activeTaskId = socket.data.activeTaskId;
 
+      const now = Date.now();
+      const lastTime = lastCommandTimes.get(socket.id) || 0;
+      if (now - lastTime < 250) {
+        return socket.emit('terminal:output', {
+          stdout: [],
+          stderr: ['[!] SECURITY ALERT: Command execution rate limit exceeded. Please slow down.'],
+          cwd: '/'
+        });
+      }
+      lastCommandTimes.set(socket.id, now);
+
+      // Phase 6: Payload size guard - reject oversized command strings (max 512 chars)
+      if (commandLine.length > 512) {
+        return socket.emit('terminal:output', {
+          stdout: [],
+          stderr: ['[!] SECURITY ALERT: Command payload too large. Maximum 512 characters allowed.'],
+          cwd: '/'
+        });
+      }
+
       if (!activeTaskId) {
         return socket.emit('terminal:output', {
           stdout: [],
@@ -225,6 +262,15 @@ export function registerSocketGateway(io: Server) {
         if (executionResult.specialAction && executionResult.specialAction.action === 'SUBMIT_FLAG') {
           const submittedFlag = executionResult.specialAction.flag;
           
+          const lockoutTimeLeft = await redis.ttl(`lockout:user:${userId}`);
+          if (lockoutTimeLeft > 0) {
+            return socket.emit('terminal:output', {
+              stdout: [],
+              stderr: [`[-] SECURE SHELL: Access Denied. Too many failed attempts. Submissions locked for ${lockoutTimeLeft} seconds.`],
+              cwd: executionResult.cwd
+            });
+          }
+
           const task = await prisma.task.findUnique({
             where: { id: activeTaskId },
             include: { level: { include: { tasks: true } } }
@@ -278,13 +324,34 @@ export function registerSocketGateway(io: Server) {
           });
 
           if (!isCorrect) {
-            socket.emit('terminal:output', {
-              stdout: [],
-              stderr: ['[-] SECURE SHELL: Access Denied. Submitted flag is incorrect.'],
-              cwd: executionResult.cwd
-            });
+            const currentAttempts = await redis.incr(`attempts:user:${userId}`);
+            if (currentAttempts === 1) {
+              await redis.expire(`attempts:user:${userId}`, 300); // 5 minutes window
+            }
+            if (currentAttempts >= 3) {
+              await redis.set(`lockout:user:${userId}`, 'locked', { EX: 30 });
+              await redis.del(`attempts:user:${userId}`);
+              socket.emit('terminal:output', {
+                stdout: [],
+                stderr: [
+                  '[-] SECURE SHELL: Access Denied. Submitted flag is incorrect.',
+                  '[!] SECURITY BLOCK: Too many failed submissions. Submissions are temporarily locked for 30 seconds.'
+                ],
+                cwd: executionResult.cwd
+              });
+            } else {
+              socket.emit('terminal:output', {
+                stdout: [],
+                stderr: [
+                  '[-] SECURE SHELL: Access Denied. Submitted flag is incorrect.',
+                  `[!] Attempt ${currentAttempts}/3 before lockout.`
+                ],
+                cwd: executionResult.cwd
+              });
+            }
           } else {
             // Task solved successfully!
+            await redis.del(`attempts:user:${userId}`);
             socket.emit('terminal:output', {
               stdout: ['[+] SECURE SHELL: Access Granted! Flag verified successfully.', ''],
               stderr: [],
@@ -374,10 +441,16 @@ export function registerSocketGateway(io: Server) {
     });
 
     socket.on('disconnect', () => {
+      // Phase 7: Cleanup rate limit tracking to prevent memory leaks
+      lastCommandTimes.delete(socket.id);
       if (role === 'STUDENT') {
-        onlineUsers.delete(userId);
-        console.log(`[Socket] Removed STUDENT user ${userId} from onlineUsers. Active count: ${onlineUsers.size}`);
-        io.to('admin:room').emit('admin:teams:refresh');
+        // Only clean up if this socket is still the registered active one (not an evicted old one)
+        if (activeUserSockets.get(userId) === socket.id) {
+          activeUserSockets.delete(userId);
+          onlineUsers.delete(userId);
+          console.log(`[Socket] Removed STUDENT user ${userId} from onlineUsers. Active count: ${onlineUsers.size}`);
+          io.to('admin:room').emit('admin:teams:refresh');
+        }
       }
       console.log(`User ${username} (${userId}) disconnected`);
     });

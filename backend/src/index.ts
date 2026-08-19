@@ -5,6 +5,7 @@ import Fastify from 'fastify';
 import socketio from 'fastify-socket.io';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
+import rateLimit from '@fastify/rate-limit';
 import * as path from 'path';
 import { connectRedis } from './services/redis';
 import { authRoutes } from './routes/auth';
@@ -26,6 +27,17 @@ async function main() {
       origin: '*', // Custom configurations if front-end URL is defined
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       allowedHeaders: ['Content-Type', 'Authorization']
+    });
+
+    // 1.2 Set global HTTP rate limit (200 requests per minute per IP)
+    await fastify.register(rateLimit, {
+      max: 200,
+      timeWindow: '1 minute',
+      errorResponseBuilder: (_request: any, context: any) => ({
+        statusCode: 429,
+        error: 'Too Many Requests',
+        message: `[SECURITY] Rate limit exceeded. Retry after ${context.after}.`
+      })
     });
 
     // 1.5 Setup Static File Servings

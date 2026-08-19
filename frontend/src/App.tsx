@@ -656,9 +656,6 @@ export default function App() {
       setLeaderboard(data);
     });
 
-    socket.on('admin:activity:feed', (data: any) => {
-      addAdminLog(`[${data.teamName}] ${data.username}: ${data.commandLine}`, 'command');
-    });
 
     socket.on('admin:solve:alert', (data: any) => {
       addAdminLog(`🎉 [${data.teamName}] ${data.username} solved ${data.taskName}! (+${data.pointsAdded} pts)`, 'success');

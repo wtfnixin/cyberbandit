@@ -211,15 +211,6 @@ export function registerSocketGateway(io: Server) {
           specialAction: executionResult.specialAction
         });
 
-        // Broadcast telemetry logs to admin panel
-        const teamObj = await getTeam(teamId);
-        io.to('admin:room').emit('admin:activity:feed', {
-          teamName: teamObj?.name || 'Unknown Team',
-          username,
-          commandLine,
-          cwd: executionResult.cwd,
-          timestamp: new Date().toISOString()
-        });
 
         // 3. Intercept & Evaluate SUBMIT_FLAG special actions
         if (executionResult.specialAction && executionResult.specialAction.action === 'SUBMIT_FLAG') {

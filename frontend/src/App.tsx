@@ -84,7 +84,7 @@ const CHEAT_SHEET_CATEGORIES: CheatSheetCategory[] = [
     items: [
       { cmd: 'pwd', desc: 'Print current working directory path' },
       { cmd: 'ls -la', desc: 'List all files including hidden dotfiles with details' },
-      { cmd: 'cd folder', desc: "Change directory to 'folder'" },
+      { cmd: 'cd <folder>', desc: "Change directory to a specific folder" },
       { cmd: 'cd ..', desc: 'Move up one parent directory' }
     ]
   },
@@ -92,29 +92,29 @@ const CHEAT_SHEET_CATEGORIES: CheatSheetCategory[] = [
     title: 'Reading & Searching Files',
     icon: FileText,
     items: [
-      { cmd: 'cat readme.txt', desc: 'Print text file contents to screen' },
+      { cmd: 'cat <filename>', desc: 'Print text file contents to screen' },
       { cmd: 'cat ./-', desc: "Read a file named '-' using relative pathing" },
-      { cmd: 'cat "file with spaces"', desc: 'Read file names containing spaces using quotes' },
-      { cmd: 'grep \'keyword\' data.txt', desc: "Search and filter lines containing 'keyword'" }
+      { cmd: 'cat "file with spaces"', desc: 'Read file names containing spaces using surrounding quotes' },
+      { cmd: 'grep "<keyword>" <file>', desc: "Search and filter lines containing a keyword" }
     ]
   },
   {
     title: 'Finding & Type Inspection',
     icon: Search,
     items: [
-      { cmd: 'file ./inhere/*', desc: 'Determine file type (ASCII text, binary, PNG)' },
-      { cmd: 'find inhere -type f -size 1033c', desc: 'Find files under 1033 bytes in size' },
-      { cmd: 'sort data.txt | uniq -u', desc: 'Sort text and print ONLY non-duplicate lines' }
+      { cmd: 'file <filename>', desc: 'Determine file type (ASCII text, binary, PNG)' },
+      { cmd: 'find . -type f -size <bytes>c', desc: 'Find files based on exact byte size' },
+      { cmd: 'sort <file> | uniq -u', desc: 'Sort text and pipe it to print ONLY non-duplicate lines' }
     ]
   },
   {
     title: 'Encodings, Strings & Network',
     icon: LockKeyhole,
     items: [
-      { cmd: 'base64 -d encoded.txt', desc: 'Decode Base64 encoded string' },
-      { cmd: 'tr \'A-Za-z\' \'N-ZA-Mn-za-m\'', desc: 'Decipher ROT13 text substitution' },
-      { cmd: 'strings data.dat | grep \'=\'', desc: 'Extract printable text from binary executable' },
-      { cmd: 'nc localhost 1337', desc: 'Connect to local netcat port listener' }
+      { cmd: 'base64 -d <file>', desc: 'Decode a Base64 encoded string' },
+      { cmd: 'tr \'A-Za-z\' \'N-ZA-Mn-za-m\'', desc: 'Decipher a ROT13 text substitution' },
+      { cmd: 'strings <file> | grep "="', desc: 'Extract printable text from a binary executable' },
+      { cmd: 'nc localhost <port>', desc: 'Connect to local netcat port listener' }
     ]
   }
 ];
@@ -1545,26 +1545,7 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Leaderboard Button */}
-              <button
-                onClick={() => { setShowStudentLeaderboard(true); playClickSound(); }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(0, 0, 0, 0.4)',
-                  border: '1px solid var(--theme-border)',
-                  color: 'var(--theme-text)',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                <Award size={14} style={{ color: 'var(--amber)' }} />
-                <span>Leaderboard</span>
-              </button>
+
 
               {/* Cheat Sheet Button */}
               <button
@@ -1990,16 +1971,6 @@ export default function App() {
                               {level && level.id === selectedLevelId ? level.title : `Level ${selectedLevelId}`}
                             </h2>
                           </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0, 0, 0, 0.6)', border: '1px solid var(--theme-border)', padding: '6px 12px', borderRadius: '6px' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--theme-text-muted)' }}>Try command:</span>
-                          <code style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--theme-primary)' }}>
-                            cat flag.txt
-                          </code>
-                          <button onClick={() => void handleGuardedQuestionCommandCopy('cat flag.txt')} style={{ background: 'transparent', border: 'none', color: 'var(--theme-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                            <Copy size={14} />
-                          </button>
                         </div>
                       </div>
 

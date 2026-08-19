@@ -789,18 +789,26 @@ export default function App() {
 
   // Synchronize base selectedLevelId with socket's active level
   useEffect(() => {
-    if (level && selectedLevelId === null) {
-      setSelectedLevelId(level.id);
+    if (level) {
+      if (selectedLevelId === null) {
+        setSelectedLevelId(level.id);
+      }
+      if (level.tasks && level.tasks.length > 0 && tasks.length === 0) {
+        setTasks(level.tasks);
+      }
     }
-  }, [level, selectedLevelId]);
+  }, [level, selectedLevelId, tasks.length]);
 
   // Fetch older/non-active level tasks when selectedLevelId switches
   useEffect(() => {
-    if (selectedLevelId === null || !token) return;
-    if (level && selectedLevelId === level.id) {
-      setTasks(level.tasks);
+    if (!token) return;
+    const targetLevelId = selectedLevelId || level?.id || 1;
+    if (level && targetLevelId === level.id) {
+      if (level.tasks && level.tasks.length > 0) {
+        setTasks(level.tasks);
+      }
     } else {
-      fetch(`/api/levels/${selectedLevelId}`, {
+      fetch(`/api/levels/${targetLevelId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
         .then(res => res.json())
@@ -1862,11 +1870,12 @@ export default function App() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                    {tasks.map(task => {
+                    {((tasks && tasks.length > 0) ? tasks : (level?.tasks || [])).map(task => {
                       const isCompleted = (selectedLevelId !== null && selectedLevelId < (team?.currentLevelId || 1)) || progress[task.taskRole] === 'COMPLETED';
                       return (
                         <div
                           key={task.id}
+                          onClick={() => mountTask(task.id)}
                           className="glass-container"
                           style={{
                             padding: '24px',
@@ -1876,7 +1885,8 @@ export default function App() {
                             background: isCompleted ? 'rgba(0, 255, 102, 0.04)' : 'var(--theme-card-bg)',
                             border: '1px solid ' + (isCompleted ? 'var(--theme-primary)' : 'var(--theme-border)'),
                             borderRadius: '8px',
-                            position: 'relative'
+                            position: 'relative',
+                            cursor: 'pointer'
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

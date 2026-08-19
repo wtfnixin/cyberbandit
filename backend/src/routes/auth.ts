@@ -266,10 +266,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         const teamObj = await prisma.team.findUnique({
           where: { id: decoded.teamId }
         });
-        if (!teamObj) {
-          return reply.code(404).send({ error: 'Team not found' });
-        }
-        if (Number(levelId) > teamObj.currentLevelId) {
+        if (teamObj && Number(levelId) > teamObj.currentLevelId) {
           return reply.code(403).send({ error: 'Access denied: level is locked' });
         }
       }

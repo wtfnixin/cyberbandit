@@ -127,6 +127,17 @@ export function registerSocketGateway(io: Server) {
         level: team.currentLevel,
         progress
       });
+    } else {
+      // Fallback: If team record was reset/deleted, send Level 1 data so UI tasks load cleanly
+      const level1 = await prisma.level.findUnique({
+        where: { id: 1 },
+        include: { tasks: true }
+      });
+      socket.emit('team:info', {
+        team: { id: teamId, name: username || 'CyberBandit Team', score: 0, currentLevelId: 1 },
+        level: level1,
+        progress: {}
+      });
     }
 
     // Broadcast updated leaderboard to all upon new players entering

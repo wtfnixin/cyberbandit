@@ -793,20 +793,18 @@ export default function App() {
       if (selectedLevelId === null) {
         setSelectedLevelId(level.id);
       }
-      if (level.tasks && level.tasks.length > 0 && tasks.length === 0) {
+      if (level.tasks && level.tasks.length > 0) {
         setTasks(level.tasks);
       }
     }
-  }, [level, selectedLevelId, tasks.length]);
+  }, [level, selectedLevelId]);
 
   // Fetch older/non-active level tasks when selectedLevelId switches
   useEffect(() => {
     if (!token) return;
     const targetLevelId = selectedLevelId || level?.id || 1;
-    if (level && targetLevelId === level.id) {
-      if (level.tasks && level.tasks.length > 0) {
-        setTasks(level.tasks);
-      }
+    if (level && targetLevelId === level.id && level.tasks && level.tasks.length > 0) {
+      setTasks(level.tasks);
     } else {
       fetch(`/api/levels/${targetLevelId}`, {
         headers: { 'Authorization': `Bearer ${token}` }

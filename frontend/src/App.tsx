@@ -134,6 +134,78 @@ function parseJwt(token: string) {
   }
 }
 
+const MatrixRain: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Matrix characters (mix of letters & katakana characters)
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ';
+    const charArr = chars.split('');
+    const fontSize = 14;
+    const columns = Math.ceil(canvas.width / fontSize);
+    const drops: number[] = Array(columns).fill(1).map(() => Math.floor(Math.random() * -100));
+
+    const draw = () => {
+      ctx.fillStyle = 'rgba(2, 6, 4, 0.08)'; // matches our theme background
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = 'rgba(0, 255, 102, 0.18)'; // transparent neon green
+      ctx.font = `${fontSize}px monospace`;
+
+      for (let i = 0; i < drops.length; i++) {
+        const text = charArr[Math.floor(Math.random() * charArr.length)];
+        const x = i * fontSize;
+        const y = drops[i] * fontSize;
+
+        ctx.fillText(text, x, y);
+
+        if (y > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', resizeCanvas);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 0,
+        pointerEvents: 'none',
+        opacity: 0.8
+      }}
+    />
+  );
+};
+
 export default function App() {
   // Auth Session States
   const [token, setToken] = useState<string | null>(localStorage.getItem('jwt_token'));
@@ -1511,11 +1583,11 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Dashboard Layout */}
-      <main style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '12px', gap: '12px' }}>
+      <main style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '12px', gap: '12px', position: 'relative' }}>
         {!isLogged ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-            <div className="glass-container" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', position: 'relative' }}>
+            <MatrixRain />
+            <div className="glass-container" style={{ width: '100%', maxWidth: '480px', padding: '32px', zIndex: 1, position: 'relative' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--theme-primary)', marginBottom: '24px', textAlign: 'center', letterSpacing: '1px' }}>
                 ENTER COMPONENT WORKSPACE
               </h2>

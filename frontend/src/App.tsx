@@ -229,6 +229,8 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [progress, setProgress] = useState<Record<string, string>>({});
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const activeTaskIdRef = useRef<string | null>(null);
+  activeTaskIdRef.current = activeTaskId;
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
   const [studentLevels, setStudentLevels] = useState<any[]>([]);
   // Derive the currently mounted task once per render to avoid repeated lookups
@@ -913,7 +915,7 @@ export default function App() {
               commandBufferRef.current = '';
               setActiveTaskId(null);
             } else if (cmd.length > 0) {
-              socketRef.current.emit('command:execute', { commandLine: cmd });
+              socketRef.current.emit('command:execute', { commandLine: cmd, taskId: activeTaskIdRef.current });
               commandBufferRef.current = '';
             } else {
               writePrompt();
@@ -947,7 +949,7 @@ export default function App() {
             commandBufferRef.current = '';
             writePrompt();
           } else {
-            socketRef.current.emit('command:execute', { commandLine: cmd });
+            socketRef.current.emit('command:execute', { commandLine: cmd, taskId: activeTaskIdRef.current });
             commandBufferRef.current = '';
           }
         } else {
@@ -977,7 +979,7 @@ export default function App() {
               const cmd = commandBufferRef.current.trim();
               term.write('\r\n');
               if (cmd.length > 0) {
-                socketRef.current?.emit('command:execute', { commandLine: cmd });
+                socketRef.current?.emit('command:execute', { commandLine: cmd, taskId: activeTaskIdRef.current });
                 commandBufferRef.current = '';
               } else {
                 writePrompt();
@@ -1195,7 +1197,7 @@ export default function App() {
     e.preventDefault();
     if (!passwordSubmissionInput.trim()) return;
     if (socketRef.current) {
-      socketRef.current.emit('command:execute', { commandLine: `submit ${passwordSubmissionInput.trim()}` });
+      socketRef.current.emit('command:execute', { commandLine: `submit ${passwordSubmissionInput.trim()}`, taskId: activeTaskIdRef.current });
       setPasswordSubmissionInput('');
       playClickSound();
     }

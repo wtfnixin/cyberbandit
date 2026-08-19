@@ -160,7 +160,7 @@ export function registerSocketGateway(io: Server) {
           const teamObj = await prisma.team.findUnique({
             where: { id: teamId }
           });
-          if (!teamObj || task.levelId > teamObj.currentLevelId) {
+          if (teamObj && task.levelId > teamObj.currentLevelId) {
             return socket.emit('error', { message: 'Access denied: task belongs to a locked level' });
           }
         }
@@ -184,29 +184,46 @@ export function registerSocketGateway(io: Server) {
     });
 
     // 2. Command Execution
-    socket.on('command:execute', async (data: { commandLine: string }) => {
+    socket.on('command:execute', async (data: { commandLine: string; taskId?: string }) => {
       const { commandLine } = data;
-      const activeTaskId = socket.data.activeTaskId;
+      let activeTaskId = socket.data.activeTaskId || data.taskId;
 
       if (!activeTaskId) {
-        return socket.emit('terminal:output', {
-          stdout: [],
-          stderr: ['System: Please select and mount a task from the dashboard tab interface before typing commands.'],
-          cwd: '/'
-        });
+        const firstTask = await prisma.task.findFirst({ orderBy: { id: 'asc' } });
+        if (firstTask) {
+          activeTaskId = firstTask.id;
+          socket.data.activeTaskId = activeTaskId;
+          const initialVfs = firstTask.initialVFS as any as DirectoryNode;
+          await initializeUserSession(userId, initialVfs, firstTask.startDirectory);
+        } else {
+          return socket.emit('terminal:output', {
+            stdout: [],
+            stderr: ['System: Please select and mount a task from the dashboard tab interface before typing commands.'],
+            cwd: '/'
+          });
+        }
       }
 
       try {
         // Fetch active workspace state
-        const vfs = await getUserVFS(userId);
-        const cwd = await getUserCWD(userId);
+        let vfs = await getUserVFS(userId);
+        if (!vfs) {
+          const activeTaskObj = await prisma.task.findUnique({ where: { id: activeTaskId } });
+          if (activeTaskObj) {
+            const initialVfs = activeTaskObj.initialVFS as any as DirectoryNode;
+            await initializeUserSession(userId, initialVfs, activeTaskObj.startDirectory);
+            vfs = await getUserVFS(userId);
+            cwd = await getUserCWD(userId);
+          }
+        }
 
         if (!vfs) {
           return socket.emit('terminal:output', {
             stdout: [],
             stderr: ['System: VFS session expired. Please re-mount the task.'],
-            cwd
+            cwd: '/'
           });
+        }
         }
 
         // Save entry history

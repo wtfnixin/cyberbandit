@@ -21,11 +21,13 @@ export function parseCommandLine(cmdString: string): ParsedCommand {
 
   const args: string[] = [];
   const flags: string[] = [];
+  const originalTokens: string[] = [];
 
   for (let i = 1; i < matches.length; i++) {
     let token = matches[i];
     // Strip outer quotes if present
     token = token.replace(/^["']|["']$/g, '');
+    originalTokens.push(token);
 
     if (token.startsWith('-')) {
       // It is a flag (e.g. -l, -la, --recursive)
@@ -35,7 +37,7 @@ export function parseCommandLine(cmdString: string): ParsedCommand {
     }
   }
 
-  return { cmd, args, flags };
+  return { cmd, args, flags, originalTokens };
 }
 
 /**

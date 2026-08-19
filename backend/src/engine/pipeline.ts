@@ -52,13 +52,13 @@ export function executeCommandLine(
 
   for (let i = 0; i < stages.length; i++) {
     const stage = stages[i];
-    const { cmd, args, flags } = parseCommandLine(stage);
+    const { cmd, args, flags, originalTokens } = parseCommandLine(stage);
 
     if (!cmd) {
       continue;
     }
 
-    const stageResult = runCommand(cmd, args, flags, currentCWD, currentVFS, activeStdin);
+    const stageResult = runCommand(cmd, args, flags, currentCWD, currentVFS, activeStdin, originalTokens);
 
     // Collect stderr
     if (stageResult.stderr.length > 0) {

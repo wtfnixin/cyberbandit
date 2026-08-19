@@ -33,7 +33,8 @@ export function runCommand(
   flags: string[],
   cwd: string,
   vfsRoot: DirectoryNode,
-  stdin: string[] = []
+  stdin: string[] = [],
+  originalTokens: string[] = []
 ): CommandResult {
   const command = cmd.toLowerCase();
   
@@ -465,9 +466,11 @@ export function runCommand(
       }
 
       case 'find': {
-        const searchPath = args[0] || '.';
-        const nameFlagIndex = args.indexOf('-name');
-        const searchName = nameFlagIndex !== -1 ? args[nameFlagIndex + 1] : null;
+        const searchPath = originalTokens[0] && !originalTokens[0].startsWith('-') ? originalTokens[0] : '.';
+        const nameFlagIndex = originalTokens.indexOf('-name');
+        const searchName = nameFlagIndex !== -1 ? originalTokens[nameFlagIndex + 1] : null;
+        const sizeFlagIndex = originalTokens.indexOf('-size');
+        const searchSize = sizeFlagIndex !== -1 ? originalTokens[sizeFlagIndex + 1] : null;
 
         const { node: resolvedNode, path: resolvedPath } = resolvePath(cwd, searchPath, mutatedRoot);
         
@@ -476,8 +479,36 @@ export function runCommand(
         function traverse(node: VfsNode, runningPath: string) {
           const normalizedPath = runningPath === '/' ? '' : runningPath;
           
-          if (!searchName || node.name.includes(searchName.replace(/\*/g, ''))) {
-            results.push(runningPath);
+          let matchesName = true;
+          if (searchName) {
+            const cleanPattern = searchName.replace(/\*/g, '');
+            matchesName = node.name.includes(cleanPattern);
+          }
+
+          let matchesSize = true;
+          if (searchSize && node.type === 'file') {
+            const sizeInBytes = node.content.length;
+            if (searchSize.endsWith('c')) {
+              const targetSize = parseInt(searchSize.slice(0, -1));
+              matchesSize = sizeInBytes === targetSize;
+            } else {
+              const targetSize = parseInt(searchSize) * 512;
+              matchesSize = sizeInBytes === targetSize;
+            }
+          } else if (searchSize && node.type !== 'file') {
+            matchesSize = false;
+          }
+
+          if (matchesName && matchesSize) {
+            let displayedPath = runningPath;
+            if (searchPath === '.' || searchPath === '..') {
+              const rel = runningPath.substring(resolvedPath.length);
+              displayedPath = searchPath + rel;
+            } else if (!searchPath.startsWith('/')) {
+              const rel = runningPath.substring(resolvedPath.length);
+              displayedPath = searchPath + rel;
+            }
+            results.push(displayedPath);
           }
 
           if (node.type === 'directory') {
@@ -492,8 +523,163 @@ export function runCommand(
         break;
       }
 
+      case 'file': {
+        const targetPath = args[0];
+        if (!targetPath) {
+          result.stderr.push("file: missing filename");
+          break;
+        }
+
+        try {
+          const { node } = resolvePath(cwd, targetPath, mutatedRoot);
+          if (node.type === 'directory') {
+            result.stdout.push(`${targetPath}: directory`);
+          } else {
+            if (targetPath.endsWith('.sh') || node.content.startsWith('#!')) {
+              result.stdout.push(`${targetPath}: POSIX shell script`);
+            } else if (targetPath.includes('main.exe') || targetPath.includes('list_check')) {
+              result.stdout.push(`${targetPath}: ELF 64-bit LSB executable`);
+            } else {
+              result.stdout.push(`${targetPath}: ASCII text`);
+            }
+          }
+        } catch {
+          result.stderr.push(`file: ${targetPath}: No such file or directory`);
+        }
+        break;
+      }
+
+      case 'base64': {
+        const decode = flags.some(f => f.includes('d'));
+        let input = '';
+        if (args.length > 0 && !args[0].startsWith('-')) {
+          try {
+            const { node } = resolvePath(cwd, args[0], mutatedRoot);
+            if (node.type === 'file') {
+              input = node.content;
+            } else {
+              result.stderr.push(`base64: ${args[0]}: Is a directory`);
+              break;
+            }
+          } catch {
+            input = args[0];
+          }
+        } else {
+          input = stdin.join('\n');
+        }
+
+        if (decode) {
+          try {
+            const decoded = Buffer.from(input.trim(), 'base64').toString('utf-8');
+            result.stdout.push(...decoded.split('\n'));
+          } catch (e) {
+            result.stderr.push("base64: invalid input");
+          }
+        } else {
+          const encoded = Buffer.from(input).toString('base64');
+          result.stdout.push(encoded);
+        }
+        break;
+      }
+
+      case 'tr': {
+        if (args.length < 2) {
+          result.stderr.push("tr: missing operand");
+          break;
+        }
+        const set1 = args[0];
+        const set2 = args[1];
+        const input = stdin.join('\n');
+
+        if (set1 === 'A-Za-z' && set2 === 'N-ZA-Mn-za-m') {
+          const rot13 = (str: string) => str.replace(/[a-zA-Z]/g, (c) => {
+            const base = c <= 'Z' ? 65 : 97;
+            return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+          });
+          result.stdout.push(...rot13(input).split('\n'));
+        } else {
+          const map: Record<string, string> = {};
+          for (let i = 0; i < Math.min(set1.length, set2.length); i++) {
+            map[set1[i]] = set2[i];
+          }
+          const output = input.split('').map(char => map[char] || char).join('');
+          result.stdout.push(...output.split('\n'));
+        }
+        break;
+      }
+
+      case 'strings': {
+        const fileArg = args[0];
+        if (!fileArg) {
+          result.stderr.push("strings: target file required");
+          break;
+        }
+
+        try {
+          const { node } = resolvePath(cwd, fileArg, mutatedRoot);
+          if (node.type === 'directory') {
+            result.stderr.push(`strings: ${fileArg}: Is a directory`);
+            break;
+          }
+
+          if (fileArg.includes('main.exe')) {
+            result.stdout.push(
+              '/lib64/ld-linux-x86-64.so.2',
+              '__gmon_start__',
+              'libc.so.6',
+              'key=cGFzc19zdWNjZXNz',
+              'main_db_handler',
+              'GCC: (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0'
+            );
+          } else if (fileArg.includes('.service.bin')) {
+            result.stdout.push(
+              'init_service',
+              'db_port_bind',
+              'token=ROT13:greg',
+              'exit_gracefully'
+            );
+          } else if (fileArg.includes('list_check')) {
+            result.stdout.push(
+              'check_integrity',
+              'flag=ROT13:grag',
+              'auth_status'
+            );
+          } else {
+            result.stdout.push(...node.content.split('\n'));
+          }
+        } catch {
+          result.stderr.push(`strings: ${fileArg}: No such file or directory`);
+        }
+        break;
+      }
+
+      case 'nc':
+      case 'netcat': {
+        const host = args[0];
+        const port = args[1] || args[0];
+        
+        if (!port) {
+          result.stderr.push("nc: port number required");
+          break;
+        }
+
+        const portNum = parseInt(port);
+        if (portNum === 1337) {
+          result.stdout.push("c2VjcmV0X2RhdGEudHh0");
+        } else if (portNum === 30001) {
+          result.stdout.push("c2VydmVyX3NjcmFwZV9va2F5");
+        } else if (portNum === 50000) {
+          result.stdout.push("ROT13:fhjnl");
+        } else if (portNum === 60000) {
+          result.stdout.push("Y29tcGxldGVfMjAyNg==");
+        } else {
+          result.stderr.push(`nc: connect to localhost port ${port} failed: Connection refused`);
+        }
+        break;
+      }
+
       case 'submit': {
-        const flag = args[0];
+        const flag = args.join(' ');
         if (!flag) {
           result.stderr.push("submit: flag argument required. Usage: submit flag{...}");
         } else {

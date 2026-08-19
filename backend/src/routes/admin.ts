@@ -1,7 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../services/db';
 import * as jwt from 'jsonwebtoken';
-import { onlineUsers } from '../gateway/socket';
+import { onlineUsers, forceRefreshAllStudents } from '../gateway/socket';
+import { seedSystemLevels } from '../services/seedSyllabus';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
 
@@ -219,6 +220,20 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.send(levels);
     } catch (err: any) {
       return reply.code(500).send({ error: 'Failed to list levels', details: err.message });
+    }
+  });
+
+  // 8. Bulk seed all 20 levels
+  fastify.post('/api/admin/seed', async (request, reply) => {
+    try {
+      await seedSystemLevels();
+      const io = (fastify as any).io;
+      if (io) {
+        await forceRefreshAllStudents(io);
+      }
+      return reply.code(200).send({ message: 'Successfully seeded 20 levels' });
+    } catch (err: any) {
+      return reply.code(500).send({ error: 'Seeding failed', details: err.message });
     }
   });
 }

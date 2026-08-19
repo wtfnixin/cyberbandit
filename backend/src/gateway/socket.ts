@@ -145,6 +145,15 @@ export function registerSocketGateway(io: Server) {
           return socket.emit('error', { message: 'Task not found' });
         }
 
+        if (role === 'STUDENT') {
+          const teamObj = await prisma.team.findUnique({
+            where: { id: teamId }
+          });
+          if (!teamObj || task.levelId > teamObj.currentLevelId) {
+            return socket.emit('error', { message: 'Access denied: task belongs to a locked level' });
+          }
+        }
+
         // Cache the active taskId in user socket data
         socket.data.activeTaskId = taskId;
 
@@ -227,6 +236,34 @@ export function registerSocketGateway(io: Server) {
               stderr: ['Evaluation Error: Mounted task is invalid.'],
               cwd: executionResult.cwd
             });
+          }
+
+          if (role === 'STUDENT') {
+            const teamObj = await prisma.team.findUnique({
+              where: { id: teamId }
+            });
+            if (!teamObj) {
+              return socket.emit('terminal:output', {
+                stdout: [],
+                stderr: ['Evaluation Error: Team not found.'],
+                cwd: executionResult.cwd
+              });
+            }
+            if (task.levelId !== teamObj.currentLevelId) {
+              return socket.emit('terminal:output', {
+                stdout: [],
+                stderr: [`Evaluation Error: Task level mismatch. Task belongs to Level ${task.levelId}, but your team is on Level ${teamObj.currentLevelId}.`],
+                cwd: executionResult.cwd
+              });
+            }
+            const progress = await getTeamProgress(teamId);
+            if (progress[task.taskRole] === 'COMPLETED') {
+              return socket.emit('terminal:output', {
+                stdout: [],
+                stderr: [`Evaluation Error: Task role ${task.taskRole} is already completed by your team.`],
+                cwd: executionResult.cwd
+              });
+            }
           }
 
           const isCorrect = task.validationTarget.trim() === submittedFlag.trim();
@@ -345,4 +382,22 @@ export function registerSocketGateway(io: Server) {
       console.log(`User ${username} (${userId}) disconnected`);
     });
   });
+}
+
+export async function forceRefreshAllStudents(io: Server) {
+  const sockets = await io.fetchSockets();
+  for (const s of sockets) {
+    if (s.data && s.data.role === 'STUDENT') {
+      const teamId = s.data.teamId;
+      const team = await getTeam(teamId);
+      if (team) {
+        const progress = await getTeamProgress(teamId);
+        s.emit('team:info', {
+          team: { id: team.id, name: team.name, score: team.score, currentLevelId: team.currentLevelId },
+          level: team.currentLevel,
+          progress
+        });
+      }
+    }
+  }
 }

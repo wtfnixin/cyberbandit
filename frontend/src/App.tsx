@@ -22,7 +22,8 @@ import {
   ChevronDown,
   Check,
   HelpCircle,
-  X
+  X,
+  Lock
 } from 'lucide-react';
 import 'xterm/css/xterm.css';
 import { useCopyGuard, writeGuardedClipboardText } from './utils/copyGuard';
@@ -225,6 +226,7 @@ export default function App() {
   const [progress, setProgress] = useState<Record<string, string>>({});
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
+  const [studentLevels, setStudentLevels] = useState<any[]>([]);
   // Derive the currently mounted task once per render to avoid repeated lookups
   const activeTask = tasks.find(t => t.id === activeTaskId) ?? null;
   const activeLevelTitle = level && level.id === selectedLevelId ? level.title : `Level ${selectedLevelId || level?.id || 1}`;
@@ -283,6 +285,7 @@ export default function App() {
   const [taskName, setTaskName] = useState('');
   const [taskRoleVal, setTaskRoleVal] = useState('TASK_A');
   const [taskStartDir, setTaskStartDir] = useState('/home/student');
+  const [seedingLoading, setSeedingLoading] = useState(false);
   const [taskVfs, setTaskVfs] = useState(JSON.stringify({
     name: "/",
     type: "directory",
@@ -347,6 +350,25 @@ export default function App() {
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.05);
+    } catch (e) {
+      // AudioContext fallback
+    }
+  };
+
+  const playErrorSound = () => {
+    if (isMuted) return;
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, ctx.currentTime);
+      gain.gain.setValueAtTime(0.02, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
     } catch (e) {
       // AudioContext fallback
     }
@@ -482,6 +504,34 @@ export default function App() {
       }
     } catch (err: any) {
       alert('Failed to create level: ' + err.message);
+    }
+  };
+
+  const handleSeedSyllabus = async () => {
+    if (!window.confirm("WARNING: Seeding the syllabus will delete ALL existing submissions, active team levels, and current tasks. Are you sure you want to proceed?")) {
+      return;
+    }
+    setSeedingLoading(true);
+    try {
+      const res = await fetch('/api/admin/seed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+      } else {
+        alert('Syllabus levels seeded successfully! 20 custom collaborative tasks are now active.');
+        if (adminToken) fetchLevels(adminToken);
+      }
+    } catch (err: any) {
+      alert('Failed to seed: ' + err.message);
+    } finally {
+      setSeedingLoading(false);
     }
   };
 
@@ -693,10 +743,21 @@ export default function App() {
         setUsername(decoded.username);
       }
       initializeSocket(token);
+      fetch('/api/levels', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error && Array.isArray(data)) {
+            setStudentLevels(data);
+          }
+        })
+        .catch(err => console.error('Error fetching student levels:', err));
     } else {
       localStorage.removeItem('jwt_token');
       setIsLogged(false);
       setUsername('');
+      setStudentLevels([]);
     }
   }, [token]);
 
@@ -931,8 +992,26 @@ export default function App() {
     socket.on('team:info', (data: { team: Team; level: Level; progress: Record<string, string> }) => {
       setTeam(data.team);
       setLevel(data.level);
-      setTasks(data.level.tasks);
+      setTasks(data.level?.tasks || []);
       setProgress(data.progress || {});
+      if (data.level?.tasks) {
+        const hasActiveTask = data.level.tasks.some(t => t.id === activeTaskId);
+        if (!hasActiveTask) {
+          setActiveTaskId(null);
+        }
+      } else {
+        setActiveTaskId(null);
+      }
+      fetch('/api/levels', {
+        headers: { 'Authorization': `Bearer ${userToken}` }
+      })
+        .then(res => res.json())
+        .then(levels => {
+          if (!levels.error && Array.isArray(levels)) {
+            setStudentLevels(levels);
+          }
+        })
+        .catch(err => console.error('Error fetching student levels on update:', err));
     });
 
     socket.on('leaderboard:update', (data: any[]) => {
@@ -1338,7 +1417,19 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '16px', width: '100%', height: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', height: '100%', overflowY: 'auto' }}>
+                <div className="glass-container" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--cyan)' }}>⚡ Auto-Seed Cyberbandit 20-Level Syllabus</h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--theme-text-muted)' }}>
+                      Recreate all database challenges based on the 20-level format. This resets all TASK A & B workspaces.
+                    </p>
+                  </div>
+                  <button type="button" onClick={handleSeedSyllabus} disabled={seedingLoading} className="btn" style={{ width: 'auto', padding: '8px 16px', background: 'var(--cyan)', color: '#000', fontWeight: 'bold' }}>
+                    {seedingLoading ? 'Seeding...' : '⚡ Seed 20 Levels'}
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '16px', width: '100%' }}>
                 <div className="glass-container" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
                   <h3>Create New Level</h3>
                   <form onSubmit={handleCreateLevel} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1358,7 +1449,7 @@ export default function App() {
                     </select>
                     <input type="text" className="form-control" placeholder="Task Name" value={taskName} onChange={(e) => setTaskName(e.target.value)} />
                     <select className="form-control" value={taskRoleVal} onChange={(e) => setTaskRoleVal(e.target.value)} style={{ background: '#0f172a' }}>
-                      <option value="TASK_A">TASK A</option><option value="TASK_B">TASK B</option>
+                      <option value="TASK_A">TASK A</option><option value="TASK_B">TASK B</option><option value="TASK_C">TASK C</option>
                     </select>
                     <input type="text" className="form-control" value={taskStartDir} onChange={(e) => setTaskStartDir(e.target.value)} />
                     <select className="form-control" value={taskValType} onChange={(e) => setTaskValType(e.target.value as any)} style={{ background: '#0f172a' }}>
@@ -1371,6 +1462,7 @@ export default function App() {
                   </form>
                 </div>
               </div>
+            </div>
             )
           )}
         </main>
@@ -1647,43 +1739,83 @@ export default function App() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto' }}>
                   {(() => {
-                    const unlockedLevels = [];
                     const maxLevel = team?.currentLevelId || level?.id || 1;
-                    for (let i = 1; i <= maxLevel; i++) {
-                      unlockedLevels.push(i);
-                    }
-                    return unlockedLevels.map(lvlId => {
+                    const displayList = studentLevels.length > 0 ? studentLevels : Array.from({ length: 20 }, (_, i) => ({
+                      id: i + 1,
+                      title: `Level ${i + 1}`,
+                      points: (i + 1) * 100
+                    }));
+
+                    return displayList.map(lvl => {
+                      const lvlId = lvl.id;
+                      const isLocked = lvlId > maxLevel;
                       const isSelected = selectedLevelId === lvlId;
                       const isCurrent = (team?.currentLevelId || level?.id) === lvlId;
-                      const title = (level && level.id === lvlId) ? level.title : `Level ${lvlId}: Archive`;
+                      const title = lvl.title;
 
                       return (
                         <div
                           key={lvlId}
                           onClick={() => {
+                            if (isLocked) {
+                              playErrorSound();
+                              return;
+                            }
                             setSelectedLevelId(lvlId);
                             playClickSound();
                           }}
                           style={{
-                            background: isSelected ? 'rgba(0, 255, 102, 0.08)' : 'rgba(0, 0, 0, 0.3)',
-                            border: `1px solid ${isSelected ? 'var(--theme-primary)' : 'var(--theme-border)'}`,
+                            background: isSelected 
+                              ? 'rgba(0, 255, 102, 0.08)' 
+                              : isLocked 
+                                ? 'rgba(255, 255, 255, 0.01)' 
+                                : 'rgba(0, 0, 0, 0.3)',
+                            border: `1px solid ${
+                              isSelected 
+                                ? 'var(--theme-primary)' 
+                                : isLocked 
+                                  ? 'rgba(255, 255, 255, 0.04)' 
+                                  : 'var(--theme-border)'
+                            }`,
                             borderRadius: '8px',
                             padding: '10px 12px',
-                            cursor: 'pointer',
+                            cursor: isLocked ? 'not-allowed' : 'pointer',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
+                            opacity: isLocked ? 0.45 : 1,
                             transition: 'all 0.15s ease'
                           }}
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: isSelected ? 'var(--theme-primary)' : 'var(--theme-text-muted)' }}>LEVEL {lvlId}</span>
-                            <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--theme-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }} title={title}>
+                            <span style={{ 
+                              fontSize: '0.7rem', 
+                              fontWeight: 'bold', 
+                              color: isSelected 
+                                ? 'var(--theme-primary)' 
+                                : isLocked 
+                                  ? 'var(--theme-text-muted)' 
+                                  : 'var(--theme-primary)' 
+                            }}>
+                              LEVEL {lvlId} {isLocked ? '(LOCKED)' : ''}
+                            </span>
+                            <h4 style={{ 
+                              fontSize: '0.8rem', 
+                              fontWeight: 700, 
+                              color: isLocked ? 'var(--theme-text-muted)' : 'var(--theme-text)', 
+                              whiteSpace: 'nowrap', 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              maxWidth: '170px' 
+                            }} title={title}>
                               {title}
                             </h4>
                           </div>
                           {isCurrent && (
                             <span style={{ background: 'var(--theme-primary)', color: '#000', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 900 }}>ACTIVE</span>
+                          )}
+                          {!isCurrent && isLocked && (
+                            <Lock size={12} style={{ color: 'var(--theme-text-muted)' }} />
                           )}
                         </div>
                       );
@@ -1728,7 +1860,7 @@ export default function App() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                     {tasks.map(task => {
-                      const isCompleted = progress[task.taskRole] === 'COMPLETED';
+                      const isCompleted = (selectedLevelId !== null && selectedLevelId < (team?.currentLevelId || 1)) || progress[task.taskRole] === 'COMPLETED';
                       return (
                         <div
                           key={task.id}

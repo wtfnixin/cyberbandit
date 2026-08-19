@@ -1,0 +1,198 @@
+[
+  {
+    "id": 1,
+    "title": "Level 1: Shell Navigation Essentials",
+    "description": "Acclimate to path changes, hidden files, and command structures.",
+    "points": 100,
+    "tasks": [
+      {
+        "id": "0bbbef8e-bcf8-46fa-b48a-0bf4cd6d0a28",
+        "levelId": 1,
+        "name": "Task 1A: Inspect the Flag",
+        "taskRole": "TASK_A",
+        "startDirectory": "/home/student",
+        "initialVFS": {
+          "name": "/",
+          "type": "directory",
+          "group": "root",
+          "owner": "root",
+          "children": {
+            "home": {
+              "name": "home",
+              "type": "directory",
+              "group": "root",
+              "owner": "root",
+              "children": {
+                "student": {
+                  "name": "student",
+                  "type": "directory",
+                  "group": "student",
+                  "owner": "student",
+                  "children": {
+                    "flag.txt": {
+                      "name": "flag.txt",
+                      "type": "file",
+                      "group": "student",
+                      "owner": "student",
+                      "content": "flag{welcome_to_linux_terminal_challenges}",
+                      "permissions": "644"
+                    }
+                  },
+                  "permissions": "700"
+                }
+              },
+              "permissions": "755"
+            }
+          },
+          "permissions": "755"
+        },
+        "validationType": "OUTPUT",
+        "validationTarget": "flag{welcome_to_linux_terminal_challenges}",
+        "hintText": "Type \"cat flag.txt\" to read the content of the file and type \"submit <content>\" to submit."
+      },
+      {
+        "id": "e3367235-825e-49a8-ac00-603f06079608",
+        "levelId": 1,
+        "name": "Task 1B: Find Hidden Backups",
+        "taskRole": "TASK_B",
+        "startDirectory": "/home/student",
+        "initialVFS": {
+          "name": "/",
+          "type": "directory",
+          "group": "root",
+          "owner": "root",
+          "children": {
+            "home": {
+              "name": "home",
+              "type": "directory",
+              "group": "root",
+              "owner": "root",
+              "children": {
+                "student": {
+                  "name": "student",
+                  "type": "directory",
+                  "group": "student",
+                  "owner": "student",
+                  "children": {
+                    ".backup_file": {
+                      "name": ".backup_file",
+                      "type": "file",
+                      "group": "student",
+                      "owner": "student",
+                      "content": "flag{hidden_files_begin_with_dot}",
+                      "permissions": "644"
+                    }
+                  },
+                  "permissions": "700"
+                }
+              },
+              "permissions": "755"
+            }
+          },
+          "permissions": "755"
+        },
+        "validationType": "OUTPUT",
+        "validationTarget": "flag{hidden_files_begin_with_dot}",
+        "hintText": "Use \"ls -a\" to view hidden files, then \"cat .backup_file\". Submit the value with \"submit <flag>\"."
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Level 2: Pipelines & Grepping Logs",
+    "description": "Learn to pipe stdout stream streams and match patterns.",
+    "points": 200,
+    "tasks": [
+      {
+        "id": "218f8480-d00d-4543-b446-446779b8936f",
+        "levelId": 2,
+        "name": "Task 2A: Find Threat Flag",
+        "taskRole": "TASK_A",
+        "startDirectory": "/home/student",
+        "initialVFS": {
+          "name": "/",
+          "type": "directory",
+          "group": "root",
+          "owner": "root",
+          "children": {
+            "home": {
+              "name": "home",
+              "type": "directory",
+              "group": "root",
+              "owner": "root",
+              "children": {
+                "student": {
+                  "name": "student",
+                  "type": "directory",
+                  "group": "student",
+                  "owner": "student",
+                  "children": {
+                    "server_audit.log": {
+                      "name": "server_audit.log",
+                      "type": "file",
+                      "group": "student",
+                      "owner": "student",
+                      "content": "[INFO] Port 22 scanner connection\n[DEBUG] Heartbeat ok\n[CRITICAL] SQL Injection attempt found. Flag: flag{grep_keeps_critical_events_clear}\n[INFO] Session timeout",
+                      "permissions": "644"
+                    }
+                  },
+                  "permissions": "700"
+                }
+              },
+              "permissions": "755"
+            }
+          },
+          "permissions": "755"
+        },
+        "validationType": "OUTPUT",
+        "validationTarget": "flag{grep_keeps_critical_events_clear}",
+        "hintText": "Learn to use grep: \"cat server_audit.log | grep CRITICAL\". Submit the flag."
+      },
+      {
+        "id": "1bd8e10d-5c32-4d82-bdec-cf2bc1cc97a9",
+        "levelId": 2,
+        "name": "Task 2B: Count Warning Lines",
+        "taskRole": "TASK_B",
+        "startDirectory": "/home/student",
+        "initialVFS": {
+          "name": "/",
+          "type": "directory",
+          "group": "root",
+          "owner": "root",
+          "children": {
+            "home": {
+              "name": "home",
+              "type": "directory",
+              "group": "root",
+              "owner": "root",
+              "children": {
+                "student": {
+                  "name": "student",
+                  "type": "directory",
+                  "group": "student",
+                  "owner": "student",
+                  "children": {
+                    "auth.log": {
+                      "name": "auth.log",
+                      "type": "file",
+                      "group": "student",
+                      "owner": "student",
+                      "content": "[WARNING] Invalid password\n[INFO] User logins\n[WARNING] Attempt admin expired\n[INFO] Exit server",
+                      "permissions": "644"
+                    }
+                  },
+                  "permissions": "700"
+                }
+              },
+              "permissions": "755"
+            }
+          },
+          "permissions": "755"
+        },
+        "validationType": "OUTPUT",
+        "validationTarget": "2",
+        "hintText": "Use \"cat auth.log | grep WARNING | wc -l\" to get the count. Submit the number (e.g. submit 2)."
+      }
+    ]
+  }
+]

@@ -38,4 +38,5 @@ export interface ParsedCommand {
   cmd: string;
   args: string[];
   flags: string[];
+  originalTokens?: string[];
 }

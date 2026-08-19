@@ -211,8 +211,8 @@ export async function authRoutes(fastify: FastifyInstance) {
     });
   });
 
-  // 5. Safe Level data lookup for students
-  fastify.get('/api/levels/:levelId', async (request, reply) => {
+  // 4.5 Safe Level headers lookup (Roadmap list) for students
+  fastify.get('/api/levels', async (request, reply) => {
     const authHeader = request.headers.authorization;
     if (!authHeader) {
       return reply.code(401).send({ error: 'Access denied: token required' });
@@ -225,8 +225,49 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.code(401).send({ error: 'Invalid or expired session token' });
     }
 
+    try {
+      const levels = await prisma.level.findMany({
+        select: {
+          id: true,
+          title: true,
+          points: true
+        },
+        orderBy: { id: 'asc' }
+      });
+      return reply.send(levels);
+    } catch (err: any) {
+      return reply.code(500).send({ error: 'Failed to list levels', details: err.message });
+    }
+  });
+
+  // 5. Safe Level data lookup for students
+  fastify.get('/api/levels/:levelId', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    if (!authHeader) {
+      return reply.code(401).send({ error: 'Access denied: token required' });
+    }
+
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return reply.code(401).send({ error: 'Invalid or expired session token' });
+    }
+
     const { levelId } = request.params as { levelId: string };
     try {
+      if (decoded.role === 'STUDENT') {
+        const teamObj = await prisma.team.findUnique({
+          where: { id: decoded.teamId }
+        });
+        if (!teamObj) {
+          return reply.code(404).send({ error: 'Team not found' });
+        }
+        if (Number(levelId) > teamObj.currentLevelId) {
+          return reply.code(403).send({ error: 'Access denied: level is locked' });
+        }
+      }
       const lvl = await prisma.level.findUnique({
         where: { id: Number(levelId) },
         select: {

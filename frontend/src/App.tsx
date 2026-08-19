@@ -334,6 +334,50 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isLogged]);
 
+  // DevTools and Console Security Effect
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('contextmenu', handleContextMenu);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      if (e.key === 'F12') {
+        e.preventDefault();
+        return;
+      }
+      const ctrlOrCmd = e.ctrlKey || (isMac && e.metaKey);
+      if (
+        ctrlOrCmd && 
+        (e.shiftKey || e.altKey) && 
+        (e.key === 'i' || e.key === 'I' || e.key === 'j' || e.key === 'J' || e.key === 'c' || e.key === 'C')
+      ) {
+        e.preventDefault();
+        return;
+      }
+      if (ctrlOrCmd && (e.key === 'u' || e.key === 'U' || (e.altKey && (e.key === 'u' || e.key === 'U')))) {
+        e.preventDefault();
+        return;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    console.log(
+      '%c⚠️ SECURITY COMPLIANCE WARNING ⚠️',
+      'background: #7f1d1d; color: #fecaca; font-size: 20px; font-weight: bold; padding: 10px; border-radius: 4px; border: 2px solid #ef4444;'
+    );
+    console.log(
+      '%cConsole injections, scripts, or page tampering are strictly prohibited in this competition. All connections, logins, and API payload traces are recorded. Unauthorized attempts will trigger account locking and team disqualification.',
+      'color: #fca5a5; font-size: 13px; font-style: italic; line-height: 1.5;'
+    );
+
+    return () => {
+      window.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   // Format Elapsed Time as mm:ss
   const formatElapsedTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1139,8 +1183,39 @@ export default function App() {
       addLog(`Error: ${err.message}`, 'system');
     });
 
+    let isEvicted = false;
+
+    socket.on('session:evicted', (data: { message: string }) => {
+      isEvicted = true;
+      // Show full-screen eviction overlay in terminal
+      if (xtermRef.current) {
+        xtermRef.current.writeln('\r\n\x1b[1;41;37m ============================================================ \x1b[0m');
+        xtermRef.current.writeln('\x1b[1;31m[!] SESSION TERMINATED\x1b[0m');
+        xtermRef.current.writeln(`\x1b[1;33m${data.message}\x1b[0m`);
+        xtermRef.current.writeln('\x1b[1;41;37m ============================================================ \x1b[0m\r\n');
+      }
+      addLog('[SECURITY] Session evicted: duplicate tab or window detected.', 'system');
+      playErrorSound();
+      // Force logout after a short delay so user can read the message
+      setTimeout(() => {
+        socket.disconnect();
+        setToken(null);
+        setIsLogged(false);
+        setTeam(null);
+        setLevel(null);
+        setTasks([]);
+        setProgress({});
+        setActiveTaskId(null);
+        localStorage.removeItem('jwt_token');
+        alert('⚠️ SESSION TERMINATED\n\nYour session was opened in another browser tab or window.\n\nOnly one active session is allowed per player. Please log in again.');
+      }, 2000);
+    });
+
     socket.on('disconnect', () => {
-      addLog('Websession severed. Sync paused.', 'system');
+      // Don't overwrite the eviction message with a generic disconnect message
+      if (!isEvicted) {
+        addLog('Websession severed. Sync paused.', 'system');
+      }
     });
   };
 

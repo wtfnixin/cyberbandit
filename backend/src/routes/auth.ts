@@ -185,8 +185,15 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // 4. Super Admin environment-based login
-  fastify.post('/api/auth/admin-login', async (request, reply) => {
+  // 4. Super Admin environment-based login (rate-limited: 5 per 15 min)
+  fastify.post('/api/auth/admin-login', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes'
+      }
+    }
+  }, async (request, reply) => {
     const { username, password } = request.body as { username: string; password?: string };
     const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'adminpassword123';

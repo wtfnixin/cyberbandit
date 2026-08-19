@@ -22,7 +22,11 @@ import {
   Check,
   HelpCircle,
   X,
-  Lock
+  Lock,
+  Folder,
+  FileText,
+  Search,
+  LockKeyhole
 } from 'lucide-react';
 import 'xterm/css/xterm.css';
 import { useCopyGuard, writeGuardedClipboardText } from './utils/copyGuard';
@@ -69,14 +73,14 @@ interface CheatSheetItem {
 
 interface CheatSheetCategory {
   title: string;
-  icon: string;
+  icon: React.ElementType;
   items: CheatSheetItem[];
 }
 
 const CHEAT_SHEET_CATEGORIES: CheatSheetCategory[] = [
   {
     title: 'File System & Navigation',
-    icon: '📁',
+    icon: Folder,
     items: [
       { cmd: 'pwd', desc: 'Print current working directory path' },
       { cmd: 'ls -la', desc: 'List all files including hidden dotfiles with details' },
@@ -86,7 +90,7 @@ const CHEAT_SHEET_CATEGORIES: CheatSheetCategory[] = [
   },
   {
     title: 'Reading & Searching Files',
-    icon: '📄',
+    icon: FileText,
     items: [
       { cmd: 'cat readme.txt', desc: 'Print text file contents to screen' },
       { cmd: 'cat ./-', desc: "Read a file named '-' using relative pathing" },
@@ -96,7 +100,7 @@ const CHEAT_SHEET_CATEGORIES: CheatSheetCategory[] = [
   },
   {
     title: 'Finding & Type Inspection',
-    icon: '🔍',
+    icon: Search,
     items: [
       { cmd: 'file ./inhere/*', desc: 'Determine file type (ASCII text, binary, PNG)' },
       { cmd: 'find inhere -type f -size 1033c', desc: 'Find files under 1033 bytes in size' },
@@ -105,7 +109,7 @@ const CHEAT_SHEET_CATEGORIES: CheatSheetCategory[] = [
   },
   {
     title: 'Encodings, Strings & Network',
-    icon: '🔐',
+    icon: LockKeyhole,
     items: [
       { cmd: 'base64 -d encoded.txt', desc: 'Decode Base64 encoded string' },
       { cmd: 'tr \'A-Za-z\' \'N-ZA-Mn-za-m\'', desc: 'Decipher ROT13 text substitution' },
@@ -248,7 +252,6 @@ export default function App() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [passwordSubmissionInput, setPasswordSubmissionInput] = useState<string>('');
-  const [revealedHintsCount, setRevealedHintsCount] = useState<number>(0);
 
   // Admin Session States
   const [showStudentLeaderboard, setShowStudentLeaderboard] = useState<boolean>(false);
@@ -1998,32 +2001,6 @@ export default function App() {
                             : 'Select a task mission to mount its virtual filesystem into your terminal.'}
                         </div>
                       </div>
-
-                      <div style={{ background: 'rgba(0, 0, 0, 0.4)', border: '1px solid var(--theme-border)', borderRadius: '6px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
-                        <div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--theme-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
-                            💡 GUIDED HINTS ({revealedHintsCount}/3)
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--theme-text-muted)' }}>
-                            {revealedHintsCount > 0 ? (
-                              <div style={{ color: 'var(--amber)', fontWeight: 'bold' }}>
-                                Hint #{revealedHintsCount}: {activeTask?.hintText
-                                  ? activeTask.hintText
-                                  : 'Inspect files with ls -la and cat.'}
-                              </div>
-                            ) : (
-                              "Stuck? Click 'Reveal Hint' for step-by-step assistance."
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => { setRevealedHintsCount(prev => Math.min(3, prev + 1)); playClickSound(); }}
-                          disabled={revealedHintsCount >= 3}
-                          style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: 'none', color: '#000000', padding: '6px 14px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                          Reveal Hint #{revealedHintsCount + 1}
-                        </button>
-                      </div>
                     </div>
                   </div>
 
@@ -2087,22 +2064,27 @@ export default function App() {
               <button onClick={() => setShowCheatSheet(false)} style={{ background: 'transparent', border: 'none', color: 'var(--theme-text-muted)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {CHEAT_SHEET_CATEGORIES.map(cat => (
-                <div key={cat.title}>
-                  <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--theme-primary)', marginBottom: '10px' }}>{cat.icon} {cat.title}</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {cat.items.map(item => (
-                      <div key={item.cmd} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid var(--theme-border)', padding: '10px 12px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--theme-primary)' }}>{item.cmd}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--theme-text-muted)' }}>{item.desc}</div>
+              {CHEAT_SHEET_CATEGORIES.map(cat => {
+                const IconComp = cat.icon;
+                return (
+                  <div key={cat.title}>
+                    <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--theme-primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <IconComp size={16} /> <span>{cat.title}</span>
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      {cat.items.map(item => (
+                        <div key={item.cmd} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid var(--theme-border)', padding: '10px 12px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--theme-primary)' }}>{item.cmd}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--theme-text-muted)' }}>{item.desc}</div>
+                          </div>
+                          <button onClick={() => handleCopyCommand(item.cmd)} style={{ background: 'transparent', border: 'none', color: 'var(--theme-text-muted)', cursor: 'pointer' }}><Copy size={14} /></button>
                         </div>
-                        <button onClick={() => handleCopyCommand(item.cmd)} style={{ background: 'transparent', border: 'none', color: 'var(--theme-text-muted)', cursor: 'pointer' }}><Copy size={14} /></button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

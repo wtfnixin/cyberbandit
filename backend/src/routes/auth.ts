@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { prisma } from '../services/db';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import { broadcastLeaderboard } from '../gateway/socket';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
 
@@ -27,6 +28,10 @@ export async function authRoutes(fastify: FastifyInstance) {
           currentLevelId: 1
         }
       });
+
+      if ((fastify as any).io) {
+        await broadcastLeaderboard((fastify as any).io);
+      }
 
       return reply.code(201).send({
         message: 'Team registered successfully',
@@ -293,6 +298,26 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.send(lvl);
     } catch (err: any) {
       return reply.code(500).send({ error: 'Failed to retrieve level parameters', details: err.message });
+    }
+  });
+
+  // 6. Public Leaderboard API (Returns all registered teams sorted by score)
+  fastify.get('/api/leaderboard', async (_request, reply) => {
+    try {
+      const teams = await prisma.team.findMany({
+        select: {
+          id: true,
+          name: true,
+          score: true
+        },
+        orderBy: [
+          { score: 'desc' },
+          { updatedAt: 'asc' }
+        ]
+      });
+      return reply.send(teams);
+    } catch (err: any) {
+      return reply.code(500).send({ error: 'Failed to fetch leaderboard', details: err.message });
     }
   });
 }

@@ -30,7 +30,7 @@ interface DecodedToken {
   teamId: string;
 }
 
-async function broadcastLeaderboard(io: Server) {
+export async function broadcastLeaderboard(io: Server) {
   try {
     const teams = await prisma.team.findMany({
       select: {
@@ -38,10 +38,10 @@ async function broadcastLeaderboard(io: Server) {
         name: true,
         score: true
       },
-      orderBy: {
-        score: 'desc'
-      },
-      take: 10
+      orderBy: [
+        { score: 'desc' },
+        { updatedAt: 'asc' }
+      ]
     });
     io.emit('leaderboard:update', teams);
   } catch (err: any) {

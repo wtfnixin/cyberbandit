@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../services/db';
 import * as jwt from 'jsonwebtoken';
-import { onlineUsers, forceRefreshAllStudents } from '../gateway/socket';
+import { onlineUsers, forceRefreshAllStudents, broadcastLeaderboard } from '../gateway/socket';
 import { seedSystemLevels } from '../services/seedSyllabus';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'overthewiresupersecretkey123';
@@ -88,6 +88,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
           allowedEmails: true
         }
       });
+
+      if ((fastify as any).io) {
+        await broadcastLeaderboard((fastify as any).io);
+      }
+
       return reply.code(201).send(team);
     } catch (err: any) {
       if (err.code === 'P2002') {
@@ -104,6 +109,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
       await prisma.submission.deleteMany({ where: { teamId: id } });
       await prisma.user.deleteMany({ where: { teamId: id } });
       await prisma.team.delete({ where: { id } });
+
+      if ((fastify as any).io) {
+        await broadcastLeaderboard((fastify as any).io);
+      }
+
       return reply.send({ message: 'Team deleted successfully' });
     } catch (err: any) {
       return reply.code(500).send({ error: 'Failed to delete team', details: err.message });

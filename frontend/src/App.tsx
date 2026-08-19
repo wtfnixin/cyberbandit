@@ -14,7 +14,6 @@ import {
   Activity,
   Shield,
   Trash2,
-  ArrowLeft,
   BookOpen,
   Volume2,
   VolumeX,
@@ -27,6 +26,7 @@ import {
 } from 'lucide-react';
 import 'xterm/css/xterm.css';
 import { useCopyGuard, writeGuardedClipboardText } from './utils/copyGuard';
+import { LeaderboardView } from './components/LeaderboardView';
 // @ts-ignore
 import logoImg from './logo.png';
 
@@ -251,6 +251,7 @@ export default function App() {
   const [revealedHintsCount, setRevealedHintsCount] = useState<number>(0);
 
   // Admin Session States
+  const [showStudentLeaderboard, setShowStudentLeaderboard] = useState<boolean>(false);
   const [isAdminMode] = useState<boolean>(window.location.pathname === '/admin');
   const [isLeaderboardPage] = useState<boolean>(window.location.pathname === '/leaderboard');
   const [adminToken, setAdminToken] = useState<string | null>(localStorage.getItem('admin_token'));
@@ -435,6 +436,28 @@ export default function App() {
       setLeaderboard(data);
     });
   };
+
+  const fetchLeaderboard = async () => {
+    try {
+      const res = await fetch('/api/leaderboard');
+      const data = await res.json();
+      if (!data.error && Array.isArray(data)) {
+        setLeaderboard(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch leaderboard:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
+
+  useEffect(() => {
+    if (showStudentLeaderboard || showAdminLeaderboard || isLeaderboardPage) {
+      fetchLeaderboard();
+    }
+  }, [showStudentLeaderboard, showAdminLeaderboard, isLeaderboardPage]);
 
   useEffect(() => {
     if (isLeaderboardPage) {
@@ -1182,72 +1205,17 @@ export default function App() {
   };
 
   if (isLeaderboardPage) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--theme-bg)', color: 'var(--theme-text)', padding: '40px', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--theme-border)', paddingBottom: '20px', marginBottom: '40px', maxWidth: '900px', width: '100%', margin: '0 auto 40px auto' }}>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--amber)', letterSpacing: '2px', fontWeight: 'bold' }}>// LIVE_STANDINGS_LOGISTICS</div>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--theme-primary)', marginTop: '4px', letterSpacing: '-0.5px' }}>TOURNAMENT LEADERBOARD</h1>
-          </div>
-          <div style={{ display: 'flex', gap: '24px', fontSize: '0.8rem' }}>
-            <div><span style={{ color: '#475569' }}>STREAM: </span><span style={{ color: 'var(--theme-primary)', fontWeight: 'bold' }}>ONLINE</span></div>
-            <div><span style={{ color: '#475569' }}>SYNC_TYPE: </span><span style={{ color: 'var(--cyan)' }}>REALTIME_PUSH</span></div>
-          </div>
-        </div>
-
-        <div style={{ margin: '0 auto', width: '100%', maxWidth: '900px', border: '1px solid var(--theme-border)', background: 'var(--theme-card-bg)', borderRadius: '6px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 160px', borderBottom: '1px solid var(--theme-border)', background: 'rgba(0, 255, 102, 0.05)', padding: '16px 32px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-            <span>Rank</span><span>Team Identifier</span><span style={{ textAlign: 'right' }}>Score</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {leaderboard.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '64px', color: '#475569', fontSize: '0.9rem' }}>-- NO ACTIVE DATASTREAM DETECTED --</div>
-            ) : (
-              leaderboard.map((entry, index) => (
-                <div key={entry.id || entry.name} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 160px', borderBottom: '1px solid var(--theme-border)', padding: '20px 32px', fontSize: '1.05rem', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', color: index === 0 ? 'var(--amber)' : 'var(--theme-primary)' }}>#{String(index + 1).padStart(2, '0')}</span>
-                  <span>{entry.name}</span>
-                  <span style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--theme-primary)' }}>{entry.score} PTS</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    );
+    return <LeaderboardView leaderboard={leaderboard} />;
   }
 
   if (isAdminMode) {
     if (showAdminLeaderboard) {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--theme-bg)', color: 'var(--theme-text)', padding: '40px', overflowY: 'auto' }}>
-          <button 
-            onClick={() => setShowAdminLeaderboard(false)}
-            style={{ position: 'absolute', top: '40px', left: '40px', width: '42px', height: '42px', borderRadius: '6px', background: 'rgba(15, 23, 42, 0.3)', border: '1px solid var(--theme-border)', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 100 }}
-          >
-            <ArrowLeft size={18} style={{ color: '#cbd5e1' }} />
-          </button>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--theme-border)', paddingBottom: '20px', marginBottom: '40px', maxWidth: '900px', width: '100%', margin: '0 auto 40px auto' }}>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--amber)', letterSpacing: '2px', fontWeight: 'bold' }}>// LIVE_STANDINGS_LOGISTICS</div>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--theme-text)', marginTop: '4px' }}>LIVE LEADERBOARD STANDINGS</h1>
-            </div>
-          </div>
-          <div style={{ margin: '0 auto', width: '100%', maxWidth: '900px', border: '1px solid var(--theme-border)', background: 'var(--theme-card-bg)', borderRadius: '6px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 160px', borderBottom: '1px solid var(--theme-border)', padding: '16px 32px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-              <span>Rank</span><span>Team Identifier</span><span style={{ textAlign: 'right' }}>Score</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {leaderboard.map((entry, index) => (
-                <div key={entry.id || entry.name} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 160px', borderBottom: '1px solid var(--theme-border)', padding: '20px 32px', fontSize: '1.05rem', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', color: index === 0 ? 'var(--amber)' : 'var(--theme-primary)' }}>#{String(index + 1).padStart(2, '0')}</span>
-                  <span>{entry.name}</span>
-                  <span style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--theme-primary)' }}>{entry.score} PTS</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <LeaderboardView
+          leaderboard={leaderboard}
+          onBack={() => setShowAdminLeaderboard(false)}
+          title="LIVE LEADERBOARD STANDINGS"
+        />
       );
     }
 
@@ -1470,6 +1438,15 @@ export default function App() {
     );
   }
 
+  if (showStudentLeaderboard) {
+    return (
+      <LeaderboardView
+        leaderboard={leaderboard}
+        onBack={() => setShowStudentLeaderboard(false)}
+      />
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--theme-bg)', color: 'var(--theme-text)' }}>
       {/* Navigation Header matching Screenshot 1 & 3 */}
@@ -1554,6 +1531,27 @@ export default function App() {
                   <LogOut size={14} />
                 </button>
               </div>
+
+              {/* Leaderboard Button */}
+              <button
+                onClick={() => { setShowStudentLeaderboard(true); playClickSound(); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  border: '1px solid var(--theme-border)',
+                  color: 'var(--theme-text)',
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                <Award size={14} style={{ color: 'var(--amber)' }} />
+                <span>Leaderboard</span>
+              </button>
 
               {/* Cheat Sheet Button */}
               <button

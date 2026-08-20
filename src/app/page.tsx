@@ -1429,10 +1429,10 @@ export default function App() {
             </div>
           ) : (
             adminTab === 'dashboard' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.25fr 1fr', gap: '16px', width: '100%', alignItems: 'start' }}>
-                <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 140px)', overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.25fr 1fr', gap: '16px', width: '100%', height: '100%', minHeight: 0 }}>
+                <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                   <h3 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '16px', color: 'var(--theme-text)', flexShrink: 0 }}>Registered Teams ({adminTeams.length})</h3>
-                  <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px', scrollbarWidth: 'thin', scrollbarColor: 'var(--theme-primary) transparent' }}>
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px', scrollbarWidth: 'thin', scrollbarColor: 'var(--theme-primary) transparent' }}>
                     {adminTeams.map(t => {
                       const isExpanded = expandedTeamId === t.id;
                       return (
@@ -1512,9 +1512,9 @@ export default function App() {
                     })}
                   </div>
                 </div>
-                <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
+                <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                   <h3 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '16px', color: 'var(--theme-text)' }}>Real-time Activity Telemetry</h3>
-                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem' }}>
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem', paddingRight: '4px', scrollbarWidth: 'thin', scrollbarColor: 'var(--theme-primary) transparent' }}>
                     {adminLogs.map(log => (
                       <div key={log.id} style={{ display: 'flex', gap: '8px', padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--theme-border)', borderRadius: '6px' }}>
                         <span style={{ color: 'var(--cyan)' }}>{log.timestamp}</span>
@@ -1523,7 +1523,7 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto', paddingRight: '4px', scrollbarWidth: 'thin', scrollbarColor: 'var(--theme-primary) transparent' }}>
                   <div className="glass-container" style={{ padding: '20px' }}>
                     <h3 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '16px', color: 'var(--theme-primary)' }}>Add New Team</h3>
                     <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

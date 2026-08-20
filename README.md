@@ -1,127 +1,36 @@
-# OverTheWire Terminal Challenge - Co-op Workspace
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-A real-time, team-based command-line emulation game platform. Players run simulate Linux commands on a shared canvas, submit flags, accumulate points, and advance together cooperatively.
+## Getting Started
 
----
-
-## 📂 Folder Structure
-
-The repository is organized into two separate root projects:
-
-```text
-/ (repository root)
-├── backend/                       # Fastify Web Server, Prisma DB, Sockets Gateway
-│   ├── src/                       # TypeScript backend application
-│   ├── prisma/                    # Relational PostgreSQL schemas & test seeds
-│   ├── tests/                     # Vitest suite for virtual shell validation
-│   ├── scripts/                   # Integration playthrough & team tools
-│   ├── package.json               # Backend packages configuration
-│   ├── tsconfig.json              # Backend compilation settings
-│   ├── .env                       # DB credentials configuration
-│   └── docker-compose.yml         # Postgres & Redis local databases
-│
-└── frontend/                      # Vite + React Client Dashboard
-    ├── src/                       # App.tsx visual frames & styles
-    ├── index.html                 # Browser entrypage wrapper
-    ├── vite.config.ts             # Port 3000 & Proxy configurations
-    └── package.json               # Frontend packages configuration
-```
-
----
-
-## ⚡ Quick Start: Setup & Execution Guide
-
-### Step 1: Clone the Project
-Open your workspace terminal and clone the repository:
-```bash
-git clone <repository-url>
-cd overthewire
-```
-
----
-
-### Step 2: Spin Up the Databases (Docker)
-
-Make sure you have **Docker Desktop** installed and running on your system, then navigate of `backend/` directory to boot PostgreSQL and Redis:
+First, run the development server:
 
 ```bash
-cd backend
-
-# Spin up containers in the background:
-docker compose up -d
-```
-
----
-
-### Step 3: Configure Backend Services
-Within the `backend/` directory, install package dependencies, initialize DB schema migrations, and inject level data:
-
-```bash
-# 1. Install Node Packages
-npm install
-
-# 2. Setup Environment Configuration (.env)
-# Create a .env file inside backend/ folder containing:
-PORT=5000
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/overthewire?schema=public"
-REDIS_URL="redis://localhost:6379"
-JWT_SECRET="overthewiresupersecretkey123"
-
-# 3. Apply Schema Migrations to Postgres
-npx prisma migrate dev --name init
-
-# 4. Seed Levels, Tasks, and hidden directories
-npx ts-node prisma/seed.ts
-
-# 5. Start Backend Server
 npm run dev
-```
-*(The backend launches the REST endpoints & WebSocket gateway on **`http://localhost:5000`**)*
-
----
-
-### Step 4: Run the React Dashboard Frontend
-Open a **separate terminal window** at your repository root directory and execute:
-
-```bash
-cd frontend
-
-# 1. Install packages
-npm install
-
-# 2. Boot development server
-npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Open 👉 **`http://localhost:3000`** in your browser to start playing!
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
----
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## 🩺 Troubleshoot & Error Resolutions
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### 1. Docker Error: `500 Internal Server Error: client version is too new`
-* **Cause:** Your local Docker CLI tool version is newer than the Docker virtual machine server version.
-* **Resolution:** Prefix commands with the core version tag `1.47`:
-  * **Windows Command Prompt (CMD):**
-    ```cmd
-    set DOCKER_API_VERSION=1.47
-    docker compose up -d
-    ```
-  * **Windows PowerShell:**
-    ```powershell
-    $env:DOCKER_API_VERSION="1.47"
-    docker compose up -d
-    ```
-  * **macOS / Linux Terminal:**
-    ```bash
-    export DOCKER_API_VERSION=1.47
-    docker compose up -d
-    ```
+## Learn More
 
-### 2. WSL2/Docker Service Failure: `Virtual Machine Platform check failed`
-* **Cause:** CPU Virtualization is disabled in your machine's BIOS configurations, preventing WSL or Hyper-V hypervisors from booting.
-* **Resolution:** Reboot your machine, enter the BIOS settings (usually pressing `F2`, `F10`, or `DEL` keys during startup), and set **Intel VT-x** (Intel CPUs) or **SVM Mode** (AMD CPUs) to **Enabled**.
+To learn more about Next.js, take a look at the following resources:
 
-### 3. Compilation Warnings: `setRegTeamName / handleRegisterTeam is declared but never read`
-* **Cause:** Leftover inputs from the legacy team creator code.
-* **Resolution:** Cleaned up automatically. All modules compile successfully with `typescript@5` under zero-error standard limits.
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

@@ -947,7 +947,7 @@ export default function App() {
   // Supabase Real-Time Presence: Admin Side
   useEffect(() => {
     if (isAdminMode && adminToken) {
-      const pChannel = supabase.channel('global:presence');
+      const pChannel = supabase.channel('admin:presence');
       pChannel.on('presence', { event: 'sync' }, () => {
         const state = pChannel.presenceState();
         const active = new Set<string>();
@@ -992,7 +992,7 @@ export default function App() {
   // Supabase Real-Time Presence: Student Side
   useEffect(() => {
     if (isLogged && username) {
-      const pChannel = supabase.channel('global:presence', {
+      const pChannel = supabase.channel('student:presence', {
         config: { presence: { key: username } }
       });
       pChannel.subscribe(async (status) => {

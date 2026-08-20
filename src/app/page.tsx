@@ -1429,10 +1429,10 @@ export default function App() {
             </div>
           ) : (
             adminTab === 'dashboard' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.25fr 1fr', gap: '16px', width: '100%', height: '100%' }}>
-                <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '16px', color: 'var(--theme-text)' }}>Registered Teams ({adminTeams.length})</h3>
-                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.25fr 1fr', gap: '16px', width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+                <div className="glass-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '16px', color: 'var(--theme-text)', flexShrink: 0 }}>Registered Teams ({adminTeams.length})</h3>
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px', scrollbarWidth: 'thin', scrollbarColor: 'var(--theme-primary) transparent' }}>
                     {adminTeams.map(t => {
                       const isExpanded = expandedTeamId === t.id;
                       return (
